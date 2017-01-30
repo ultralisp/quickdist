@@ -5,10 +5,7 @@
   :depends-on (alexandria
                cl-fad
                external-program babel-streams ironclad
-               quicklisp
-               com.informatimago.common-lisp.lisp-reader)
+               quicklisp)
   :serial t
   :components ((:file "package")
-               (:file "quickdist-reader")
-               (:file "quickdist")
-               (:file "reader-patches")))
+               (:file "quickdist")))

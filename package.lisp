@@ -1,12 +1,4 @@
-(defpackage #:quickdist-reader
-  (:use #:cl)
-  (:shadowing-import-from #:com.informatimago.common-lisp.lisp-reader.reader
-                          #:*readtable* #:copy-readtable
-                          #:set-dispatch-macro-character
-                          #:read
-                          #:symbol-in-missing-package-error #:intern-here
-                          #:symbol-missing-in-package-error #:make-symbol)
-  (:export #:safe-read))
+(cl:in-package :cl-user)
 
 (defpackage #:quickdist
   (:use #:cl #:alexandria)
