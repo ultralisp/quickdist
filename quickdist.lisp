@@ -93,10 +93,12 @@ system-index-url: {base-url}/{name}/{version}/systems.txt
       (sort system-files #'string< :key #'pathname-name))))
 
 (defun asdf-dependency-name (form)
-  (cond
-    ((and (listp form) (eq :version (first form)))
-     (second form))
-    (t form)))
+  (if (and (listp form) (eq :feature (car form)))
+      (asdf-dependency-name (third form))
+      (cond
+        ((and (listp form) (eq :version (first form)))
+         (second form))
+        (t form))))
 
 
 (defun stringify (value)
