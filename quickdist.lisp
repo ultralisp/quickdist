@@ -48,8 +48,8 @@ system-index-url: {base-url}/{name}/{version}/systems.txt
 
 (defun format-date (universal-time)
   (let* ((time (multiple-value-list (decode-universal-time universal-time)))
-         (date (reverse (subseq time 3 6))))
-    (format nil "~{~2,'0d~}" date)))
+         (timestamp (reverse (subseq time 0 6))))
+    (format nil "~{~2,'0d~}" timestamp)))
 
 (defun md5sum (path)
   (ironclad:byte-array-to-hex-string
