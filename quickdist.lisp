@@ -110,22 +110,23 @@ system-index-url: {base-url}/{name}/{version}/systems.txt
 
 
 (defun get-systems (asd-path)
-  (with-open-file (s asd-path)
-    (let* ((package (make-package (symbol-name (gensym "TMPPKG")) :use '(:cl :asdf :uiop)))
-           (*package* package))
-      (unwind-protect
-           (sort
-            (loop for form = (read s nil)
-                  while form
-                  when (and (symbolp (car form))
-                            (equalp "defsystem" (symbol-name (car form))))
-                  collect (list* (cadr form)
-                                 (sort (mapcar #'asdf-dependency-name
-                                               (append (getf form :defsystem-depends-on)
-                                                       (getf form :depends-on)))
-                                       #'string-lessp)))
-            #'string-lessp :key #'first)
-        (delete-package package)))))
+  (asdf:load-asd asd-path)
+  (let ((project-name (pathname-name (fad:pathname-as-file asd-path))))
+    (flet ((not-starts-with-name (system-name)
+             (not (alexandria:starts-with-subseq project-name system-name)))
+           (parse-dependency (dep)
+             (string-downcase (if (listp dep)
+                                  (first (reverse dep))
+                                  dep))))
+      (sort (loop for system-name in (remove-if #'not-starts-with-name (asdf:registered-systems))
+               as system = (asdf:find-system system-name)
+               collect (list* (string-downcase (asdf:component-name system))
+                              (sort (mapcar #'parse-dependency
+                                            (nconc (asdf:system-defsystem-depends-on system)
+                                                   (asdf:system-depends-on system)))
+                                    #'string-lessp)))
+            #'string-lessp
+            :key #'first))))
 
 
 (defun unix-filename (path)
