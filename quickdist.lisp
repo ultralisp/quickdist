@@ -80,17 +80,37 @@ system-index-url: {base-url}/{name}/{version}/systems.txt
     out-path))
 
 
+(defun make-distignore-predicate (path)
+  (if-let ((distignore-file (probe-file (fad:merge-pathnames-as-file path ".distignore"))))
+    (flet ((trim-string (string)
+             (string-trim '(#\Tab #\Space #\Newline) string)))
+      (let* ((regexes (split-sequence:split-sequence #\Newline
+                                                     (read-file-into-string distignore-file)))
+             (scanners (mapcar #'ppcre:create-scanner (mapcar #'trim-string regexes))))
+        (lambda (string)
+          (let ((path (native-namestring path))
+                (string (native-namestring string)))
+            (when (starts-with-subseq path string)
+              (let ((subpath (enough-namestring string path)))
+                (loop for scanner in scanners
+                        thereis (ppcre:scan scanner subpath))))))))
+    (constantly nil)))
+
+
 (defun find-system-files (path black-list)
   (flet ((system-name->filename (name) (concatenate 'string name ".asd")))
     (let ((system-files nil)
-          (blacklisted-filenames (mapcar #'system-name->filename black-list)))
+          (blacklisted-filenames (mapcar #'system-name->filename black-list))
+          (distignoredp (make-distignore-predicate path)))
       (flet ((add-system-file (path) (push path system-files))
 
              (asd-file-p (path) (and (string-equal "asd" (pathname-type path))
                                      (not (find (file-namestring path) blacklisted-filenames
-                                                :test #'equalp)))))
+                                                :test #'equalp))
+                                     (not (funcall distignoredp path)))))
         (fad:walk-directory path #'add-system-file :test #'asd-file-p))
       (sort system-files #'string< :key #'pathname-name))))
+
 
 (defun asdf-dependency-name (form)
   (if (and (listp form) (eq :feature (car form)))
