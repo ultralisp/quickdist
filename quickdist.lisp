@@ -12,7 +12,9 @@ system-index-url: {base-url}/{name}/{version}/systems.txt
 (defparameter *archive-dir-template*   "{dists-dir}/{name}/archive")
 (defparameter *archive-url-template*   "{base-url}/{name}/archive")
 
-(defparameter *gnutar* "/bin/tar"
+(defparameter *gnutar*
+  #+os-macosx "/usr/local/bin/gtar"
+  #-os-macosx "/bin/tar"
   "Location of the GNU TAR program")
 
 (defvar *template-readtable*
