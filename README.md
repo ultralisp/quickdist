@@ -7,6 +7,7 @@ Quickdist creates and updates Quicklisp distributions from a directory of local 
 This fork contains following changes from `borodust/quickdist`:
 
 * Fixed path to gnutar on OSX;
+* Added support for package inferred systems (a way how dependencies are collected, was refactored completely).
 
 # API
 

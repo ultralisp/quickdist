@@ -131,22 +131,79 @@ system-index-url: {base-url}/{name}/{version}/systems.txt
   (mapcar #'stringify list))
 
 
+(defun normalize-dependency-name (dep)
+  "Sometimes dependency may be specified as a list according to this piece of ASDF documentation:
+
+dependency-def := simple-component-name
+               | ( :feature feature-expression dependency-def )
+                 # (see Feature dependencies)
+               | ( :version simple-component-name version-specifier )
+               | ( :require module-name )
+"
+  (string-downcase (if (listp dep)
+                       (case (first dep)
+                         (:feature (third dep))
+                         (:version (second dep))
+                         (otherwise (error "Dependencies like ~A are not supported yet."
+                                           dep)))
+                       dep)))
+
+(defun get-external-dependencies (system-name)
+  "Returns direct external dependencies for the system.
+
+   If system is of package inferred class, then
+   this function will go through all it's internal components recursively
+   and collects their external dependencies.
+
+   For external dependendencies, which are subcomponents of other package
+   inferred system, a name of a primary system is returned.
+
+   Resulting value is a list of strings of systems names sorted alphabetically."
+  (check-type system-name string)
+  (let* ((system (asdf:find-system system-name))
+         (primary-name (asdf:primary-system-name system))
+         (defsystem-dependencies (asdf:system-defsystem-depends-on system))
+         (usual-dependencies (asdf:system-depends-on system))
+         (all-direct-dependencies (nconc defsystem-dependencies
+                                         usual-dependencies))
+         (normalized-deps (mapcar #'normalize-dependency-name
+                                  all-direct-dependencies))
+         (expanded-deps (loop for dep in normalized-deps
+                              for dep-primary-name = (asdf:primary-system-name dep)
+                              ;; We only expand inner component of the current
+                              ;; system, because for quicklisp distribution we
+                              ;; need to specify only direct dependencies
+                              if (string-equal primary-name
+                                               dep-primary-name)
+                                appending (get-external-dependencies dep)
+                              else
+                                ;; For external dependency we need to return
+                                ;; its primary system's name because
+                                ;; only primary systems are listed in the quicklisp's
+                                ;; metadata.
+                                collect dep-primary-name)))
+    (sort expanded-deps
+          #'string<)))
+
+
 (defun get-systems (asd-path)
-  (asdf:load-asd asd-path)
-  (let ((project-name (pathname-name (fad:pathname-as-file asd-path))))
-    (flet ((not-starts-with-name (system-name)
-             (not (alexandria:starts-with-subseq project-name system-name)))
-           (parse-dependency (dep)
-             (string-downcase (if (listp dep)
-                                  (first (reverse dep))
-                                  dep))))
-      (sort (loop for system-name in (remove-if #'not-starts-with-name (asdf:registered-systems))
-               as system = (asdf:find-system system-name)
-               collect (list* (string-downcase (asdf:component-name system))
-                              (sort (mapcar #'parse-dependency
-                                            (nconc (asdf:system-defsystem-depends-on system)
-                                                   (asdf:system-depends-on system)))
-                                    #'string-lessp)))
+  (check-type asd-path (or string pathname))
+  (setf asd-path (fad:pathname-as-file (probe-file asd-path)))
+  
+  ;; Here we'll remember current systems to understand
+  ;; later which one were added by a call to load-asd function
+  (let ((systems-before (alexandria:copy-hash-table
+                         asdf/system-registry:*registered-systems*)))
+    (asdf:load-asd asd-path)
+    
+    (flet ((was-loaded-before (system-name)
+             (gethash system-name
+                      systems-before)))
+      (sort (loop for system-name in (remove-if #'was-loaded-before (asdf:registered-systems))
+                  for primary-name = (asdf:primary-system-name system-name)
+                  for dependencies = (get-external-dependencies primary-name)
+                  collect (list* (string-downcase primary-name)
+                                 dependencies))
             #'string-lessp
             :key #'first))))
 
