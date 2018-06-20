@@ -10,6 +10,34 @@ This fork contains following changes from `borodust/quickdist`:
 * Added support for package inferred systems (a way how dependencies are collected, was refactored completely).
 * Quickdist:quickdist function now returns a path to a distinfo file.
 * Discovering systems inside an asd file now looks which systems were added to the `asdf/system-registry:*registered-systems*` hash.
+* Command line utility `quickdist.ros` was added to easily generate quicklisp distribution and optionally to serve static files locally.
+
+# Usage
+
+Easiest way to use quickdist is to install it via [Roswell](https://github.com/roswell/roswell):
+
+```
+ros install ultralisp/quickdist
+```
+
+And then to invoke it from the command line:
+
+```
+quickdist my-lisp-projects/
+```
+
+This command will generate a `dists` folder with a distribution which is static and can be served by any server.
+
+For production usage, you need to specify the `base-url` of the server, because distribution information holds these
+urls and quicklisp will use them to fetch software from your server:
+
+```
+quickdist --base-url 'https://lisp.example.com/' my-lisp-projects/
+rsync -avz dists/ lisp.example.com:/www/dists/
+```
+
+Also, you can set other options. Add `--help` to learn about all possibilities.
+
 
 # API
 
