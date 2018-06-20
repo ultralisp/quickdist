@@ -285,4 +285,6 @@ dependency-def := simple-component-name
     (let ((distinfo (render-template *distinfo-template* template-data)))
       (dolist (path (list (make-pathname :name "distinfo" :type "txt" :defaults dist-path)
                           distinfo-path))
-        (write-string-into-file distinfo path :if-exists :supersede)))))
+        (write-string-into-file distinfo path :if-exists :supersede))
+
+      (values distinfo-path))))
