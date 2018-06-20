@@ -148,6 +148,7 @@ dependency-def := simple-component-name
                                            dep)))
                        dep)))
 
+
 (defun get-external-dependencies (system-name)
   "Returns direct external dependencies for the system.
 
@@ -182,30 +183,54 @@ dependency-def := simple-component-name
                                 ;; only primary systems are listed in the quicklisp's
                                 ;; metadata.
                                 collect dep-primary-name)))
-    (sort expanded-deps
-          #'string<)))
+    (delete-duplicates (sort expanded-deps
+                             #'string<)
+                       :test 'string-equal)))
+
+
+(defun copy-hash-table-partially (table &key keys)
+  "Returns a copy of hash table TABLE, with the keys specified in :keys argument."
+  (let* ((test-func (hash-table-test table))
+         (copy (make-hash-table :test test-func
+                                :size (hash-table-size table)
+                                :rehash-size (hash-table-rehash-size table)
+                                :rehash-threshold (hash-table-rehash-threshold table))))
+    (maphash (lambda (k v)
+               (when (member k keys :test test-func)
+                 (setf (gethash k copy)
+                       v)))
+             table)
+    copy))
 
 
 (defun get-systems (asd-path)
   (check-type asd-path (or string pathname))
   (setf asd-path (fad:pathname-as-file (probe-file asd-path)))
   
-  ;; Here we'll remember current systems to understand
-  ;; later which one were added by a call to load-asd function
-  (let ((systems-before (alexandria:copy-hash-table
-                         asdf/system-registry:*registered-systems*)))
-    (asdf:load-asd asd-path)
-    
-    (flet ((was-loaded-before (system-name)
-             (gethash system-name
-                      systems-before)))
-      (sort (loop for system-name in (remove-if #'was-loaded-before (asdf:registered-systems))
-                  for primary-name = (asdf:primary-system-name system-name)
-                  for dependencies = (get-external-dependencies primary-name)
-                  collect (list* (string-downcase primary-name)
-                                 dependencies))
-            #'string-lessp
-            :key #'first))))
+  (handler-bind ((asdf:system-out-of-date
+                   (lambda (c)
+                     (declare (ignorable c))
+                     (invoke-restart 'continue))))
+    ;; Here we'll freeze systems registered by asdf
+    ;; and will check which were added after the asd file was loaded
+    (let* ((systems-before '("asdf"))
+           (asdf/system-registry:*registered-systems*
+             (copy-hash-table-partially
+              asdf/system-registry:*registered-systems*
+              :keys systems-before)))
+      (asdf:load-asd asd-path)
+     
+      (flet ((was-loaded-before (system-name)
+               (member system-name
+                       systems-before
+                       :test #'string-equal)))
+        (sort (loop for system-name in (remove-if #'was-loaded-before (asdf:registered-systems))
+                    for primary-name = (asdf:primary-system-name system-name)
+                    for dependencies = (get-external-dependencies primary-name)
+                    collect (list* (string-downcase primary-name)
+                                   dependencies))
+              #'string-lessp
+              :key #'first)))))
 
 
 (defun unix-filename (path)
