@@ -11,6 +11,7 @@ This fork contains following changes from `borodust/quickdist`:
 * Quickdist:quickdist function now returns a path to a distinfo file.
 * Discovering systems inside an asd file now looks which systems were added to the `asdf/system-registry:*registered-systems*` hash.
 * Command line utility `quickdist.ros` was added to easily generate quicklisp distribution and optionally to serve static files locally.
+* Now log4cl is used to output information about progress.
 
 # Usage
 

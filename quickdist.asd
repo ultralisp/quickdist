@@ -3,7 +3,8 @@
   :author "Orivej Desh <orivej@gmx.fr>"
   :licence "Unlicense <http://unlicense.org/UNLICENSE>"
   :depends-on (alexandria cl-fad external-program babel-streams ironclad
-                          cl-ppcre quicklisp split-sequence)
+                          cl-ppcre quicklisp split-sequence
+                          log4cl)
   :serial t
   :components ((:file "package")
                (:file "quickdist"))

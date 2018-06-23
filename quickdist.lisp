@@ -271,7 +271,7 @@ dependency-def := simple-component-name
                   (let* ((tgz-path (archive archive-path project-path))
                          (project-prefix (pathname-name tgz-path))
                          (project-url (format nil "~a/~a" archive-url (unix-filename tgz-path))))
-                    (format *error-output* "Processing ~a...~%" project-name)
+                    (log:info "Processing" project-name)
                     (format release-index "~a ~a ~a ~a ~a ~a~{ ~a~}~%"
                             project-name project-url (file-size tgz-path)
                             (md5sum tgz-path) (tar-content-sha1 tgz-path) project-prefix
