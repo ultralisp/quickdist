@@ -66,11 +66,6 @@ system-index-url: {base-url}/{name}/{version}/systems.txt
 (defun last-directory (path)
   (first (last (pathname-directory path))))
 
-(defun native-namestring (path)
-  #+ccl(ccl:native-translated-namestring path)
-  #+sbcl(sb-ext:native-namestring path)
-  #-(or ccl sbcl)(namestring path))
-
 (defun archive (destdir-path source-path)
   (let* ((mtime (format-date (effective-mtime source-path)))
          (name (format nil "~a-~a" (last-directory source-path) mtime))

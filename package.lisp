@@ -4,6 +4,8 @@
   (:use #:cl #:alexandria)
   (:import-from #:quicklisp
                 #:file-size)
+    (:import-from #:uiop
+                #:native-namestring)
   (:export #:quickdist
            #:*distinfo-template*
            #:*distinfo-file-template*
