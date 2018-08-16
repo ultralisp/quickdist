@@ -12,6 +12,8 @@ This fork contains following changes from `borodust/quickdist`:
 * Discovering systems inside an asd file now looks which systems were added to the `asdf/system-registry:*registered-systems*` hash.
 * Command line utility `quickdist.ros` was added to easily generate quicklisp distribution and optionally to serve static files locally.
 * Now log4cl is used to output information about progress.
+* Fixed an error on system definitions having `defsystem-depends-on` mentioned another project.
+  Now all sources are included into ASDF's source registries list.
 
 # Usage
 

@@ -249,6 +249,11 @@ dependency-def := simple-component-name
 
 
 (defun create-dist (projects-path dist-path archive-path archive-url black-alist)
+  ;; Here we need to add an additional slash to the end of the path
+  ;; to the sources, to make ASDF search recursively for available systems
+  (let ((registry-path (concatenate 'string (native-namestring projects-path) "/")))
+    (asdf:initialize-source-registry registry-path))
+  
   (with-open-file (release-index (make-pathname :name "releases" :type "txt" :defaults dist-path)
                                  :direction :output :if-exists :supersede)
     (write-line "# project url size file-md5 content-sha1 prefix [system-file1..system-fileN]" release-index)
@@ -286,7 +291,7 @@ dependency-def := simple-component-name
 
 (defun quickdist (&key name (version :today) base-url projects-dir dists-dir black-alist)
   (let* ((version (if (not (eq version :today)) version (format-date (get-universal-time))))
-         (projects-path (fad:pathname-as-directory projects-dir))
+         (projects-path (fad:pathname-as-directory (probe-file projects-dir)))
          (template-data (list :name name :version version
                               :base-url (string-right-trim "/" base-url)
                               :dists-dir (string-right-trim "/" (native-namestring dists-dir))))
