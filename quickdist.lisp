@@ -1,47 +1,27 @@
-(in-package #:quickdist)
+(in-package quickdist)
 
 (defparameter *distinfo-template*
-  "name: {name}
-version: {version}
-distinfo-subscription-url: {base-url}/{name}.txt
-release-index-url: {base-url}/{name}/{version}/releases.txt
-system-index-url: {base-url}/{name}/{version}/systems.txt
+  "name: {{name}}
+version: {{version}}
+distinfo-subscription-url: {{base-url}}/{{name}}.txt
+distinfo-template-url: {{base-url}}/{{name}}/{{=<< >>=}}{{version}}<<={{ }}=>>/distinfo.txt
+release-index-url: {{base-url}}/{{name}}/{{version}}/releases.txt
+system-index-url: {{base-url}}/{{name}}/{{version}}/systems.txt
 ")
-(defparameter *distinfo-file-template* "{dists-dir}/{name}.txt")
-(defparameter *dist-dir-template*      "{dists-dir}/{name}/{version}")
-(defparameter *archive-dir-template*   "{dists-dir}/{name}/archive")
-(defparameter *archive-url-template*   "{base-url}/{name}/archive")
+(defparameter *distinfo-file-template* "{{dists-dir}}/{{name}}.txt")
+(defparameter *dist-dir-template*      "{{dists-dir}}/{{name}}/{{version}}")
+(defparameter *archive-dir-template*   "{{dists-dir}}/{{name}}/archive")
+(defparameter *archive-url-template*   "{{base-url}}/{{name}}/archive")
 
 (defparameter *gnutar*
   #+os-macosx "/usr/local/bin/gtar"
   #-os-macosx "/bin/tar"
   "Location of the GNU TAR program")
 
-(defvar *template-readtable*
-  (let ((readtable (copy-readtable)))
-    (set-syntax-from-char #\} #\) readtable)
-    readtable))
-
-(defun read-template-form (stream)
-  (let ((*readtable* *template-readtable*)
-        (*package* (symbol-package :keyword)))
-    (read-delimited-list #\} stream)))
-
-(defmacro do-character-stream ((var stream &optional result) &body body)
-  `(loop for ,var = (read-char ,stream nil)
-         while ,var do ,@body
-         finally (return ,result)))
 
 (defun render-template (template data)
-  (with-output-to-string (out)
-    (with-input-from-string (in template)
-      (do-character-stream (c in)
-        (if (not (char= c #\{))
-            (write-char c out)
-            (let ((form (read-template-form in)))
-              (princ (or (getf data (car form))
-                         (error "The value of {~a} is undefined." (car form)))
-                     out)))))))
+  (mustache:render* template
+                    (alexandria:plist-alist data)))
 
 (defun effective-mtime (path)
   (if (not (fad:directory-pathname-p path))

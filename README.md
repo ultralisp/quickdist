@@ -14,6 +14,14 @@ This fork contains following changes from `borodust/quickdist`:
 * Now log4cl is used to output information about progress.
 * Fixed an error on system definitions having `defsystem-depends-on` mentioned another project.
   Now all sources are included into ASDF's source registries list.
+* Now additional metadata key is written into each distinfo.txt file: `distinfo-template-url`.
+  It points to a template like:
+  
+      http://foo.com/foo/{{version}}/distinfo.txt
+  
+  and this template can be used to retrieve metadata about different versions of the distribution.
+
+  Also, a custom template processor was replaced with a call to `cl-mustache` library.
 
 # Usage
 
