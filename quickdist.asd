@@ -2,6 +2,7 @@
   :description "Create a Quicklisp distribution from a directory of local projects."
   :author "Orivej Desh <orivej@gmx.fr>"
   :licence "Unlicense <http://unlicense.org/UNLICENSE>"
+  :version (:read-file-form "version.lisp-expr")
   :depends-on (alexandria
                cl-fad
                external-program
