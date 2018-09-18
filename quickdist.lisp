@@ -188,7 +188,7 @@ dependency-def := simple-component-name
                      (invoke-restart 'continue))))
     ;; Here we'll freeze systems registered by asdf
     ;; and will check which were added after the asd file was loaded
-    (let* ((systems-before '("asdf"))
+    (let* ((systems-before '("asdf" "uiop"))
            (asdf/system-registry:*registered-systems*
              (copy-hash-table-partially
               asdf/system-registry:*registered-systems*
