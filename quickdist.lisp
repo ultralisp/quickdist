@@ -189,6 +189,7 @@ dependency-def := simple-component-name
     ;; Here we'll freeze systems registered by asdf
     ;; and will check which were added after the asd file was loaded
     (let* ((systems-before '("asdf" "uiop"))
+           (loaded-system-name (pathname-name asd-path))
            (asdf/system-registry:*registered-systems*
              (copy-hash-table-partially
               asdf/system-registry:*registered-systems*
@@ -202,8 +203,10 @@ dependency-def := simple-component-name
         (sort (loop for system-name in (remove-if #'was-loaded-before (asdf:registered-systems))
                     for primary-name = (asdf:primary-system-name system-name)
                     for dependencies = (get-external-dependencies primary-name)
-                    collect (list* (string-downcase primary-name)
-                                   dependencies))
+                    when (string-equal primary-name
+                                       loaded-system-name)
+                      collect (list* system-name
+                                     dependencies))
               #'string-lessp
               :key #'first)))))
 
@@ -258,9 +261,9 @@ dependency-def := simple-component-name
                             (mapcar (curry #'unix-filename-relative-to project-path)
                                     system-files))
                     (dolist (system-file system-files)
-                      (dolist (name-and-dependencies (get-systems system-file))
-                        (let ((*print-case* :downcase)
-                              (system-name (pathname-name system-file)))
+                      (let ((*print-case* :downcase)
+                            (system-name (pathname-name system-file)))
+                        (dolist (name-and-dependencies (get-systems system-file))
                           (unless (blacklistedp project-name system-name black-alist)
                             (format system-index "~a ~a ~a~{ ~a~}~%"
                                     project-name
