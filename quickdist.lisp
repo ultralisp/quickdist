@@ -253,23 +253,42 @@ dependency-def := simple-component-name
                 (with-simple-restart (skip-project "Skip this project, continue with the next.")
                   (let* ((tgz-path (archive archive-path project-path))
                          (project-prefix (pathname-name tgz-path))
-                         (project-url (format nil "~a/~a" archive-url (unix-filename tgz-path))))
+                         (project-url (format nil "~a/~a" archive-url (unix-filename tgz-path)))
+                         (release-info nil)
+                         (systems-info nil))
                     (log:info "Processing" project-name)
-                    (format release-index "~a ~a ~a ~a ~a ~a~{ ~a~}~%"
-                            project-name project-url (file-size tgz-path)
-                            (md5sum tgz-path) (tar-content-sha1 tgz-path) project-prefix
-                            (mapcar (curry #'unix-filename-relative-to project-path)
-                                    system-files))
+                    (setf release-info
+                          (list project-name
+                                project-url
+                                (file-size tgz-path)
+                                (md5sum tgz-path)
+                                (tar-content-sha1 tgz-path)
+                                project-prefix
+                                (mapcar (curry #'unix-filename-relative-to project-path)
+                                        system-files)))
                     (dolist (system-file system-files)
                       (let ((*print-case* :downcase)
                             (system-name (pathname-name system-file)))
                         (dolist (name-and-dependencies (get-systems system-file))
                           (unless (blacklistedp project-name system-name black-alist)
-                            (format system-index "~a ~a ~a~{ ~a~}~%"
-                                    project-name
-                                    system-name
-                                    (first name-and-dependencies)
-                                    (rest name-and-dependencies)))))))))))))))
+                            (push (list project-name
+                                        system-name
+                                        (first name-and-dependencies)
+                                        (rest name-and-dependencies))
+                                  systems-info)))))
+                    ;; We are printing data to dist files only
+                    ;; after all information was collected, because
+                    ;; if some some signal was will be raised during
+                    ;; information collection, we dont' want
+                    ;; to output any information about this broken system.
+                    (apply #'format
+                           release-index
+                           "~a ~a ~a ~a ~a ~a~{ ~a~}~%"
+                           release-info)
+                    (dolist (system-info systems-info)
+                      (apply #'format
+                             system-index "~a ~a ~a~{ ~a~}~%"
+                             system-info)))))))))))
 
 
 (defun quickdist (&key name (version :today) base-url projects-dir dists-dir black-alist)

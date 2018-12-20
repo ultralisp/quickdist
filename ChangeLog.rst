@@ -2,6 +2,18 @@
  Quickdist's ChangeLog
 =======================
 
+0.3.0 (2018-12-20)
+==================
+
+* Changed a way how do system and release files are filled.
+
+  Previously, if some error was raised during loading of asd
+  file there may be information about some project's systems already
+  written into the release.txt and systems.txt files.
+
+  Now this behaviour is fixed and information will be written
+  only if all project's asd files were loaded correctly.
+
 0.2.0
 =====
 
