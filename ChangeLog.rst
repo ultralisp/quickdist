@@ -2,6 +2,17 @@
  Quickdist's ChangeLog
 =======================
 
+0.4.0 (2018-12-22)
+==================
+
+New variable was added: ``quickdist:*project-path*``.
+During building of the distribution, this special variable will point to
+a currently processed project.
+
+Also, a symbol ``quickdist:skip-project`` was exported to make it
+possible to find a restart and to skip some project in case of errors
+during the build.
+
 0.3.0 (2018-12-20)
 ==================
 

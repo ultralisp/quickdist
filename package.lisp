@@ -1,5 +1,3 @@
-(cl:in-package :cl-user)
-
 (defpackage #:quickdist
   (:use #:cl #:alexandria)
   (:import-from #:quicklisp
@@ -12,4 +10,6 @@
            #:*dist-dir-template*
            #:*archive-dir-template*
            #:*archive-url-template*
-           #:*gnutar*))
+           #:*gnutar*
+           #:*project-path*
+           #:skip-project))

@@ -18,6 +18,9 @@ system-index-url: {{base-url}}/{{name}}/{{version}}/systems.txt
   #-os-macosx "/bin/tar"
   "Location of the GNU TAR program")
 
+(defparameter *project-path* nil
+  "During building of the distribution, this special variable will point to a currently processed project.")
+
 
 (defun render-template (template data)
   (mustache:render* template
@@ -243,15 +246,16 @@ dependency-def := simple-component-name
     (with-open-file (system-index (make-pathname :name "systems" :type "txt" :defaults dist-path)
                                   :direction :output :if-exists :supersede)
       (write-line "# project system-file system-name [dependency1..dependencyN]" system-index)
-      (dolist (project-path (fad:list-directory projects-path))
-        (when (fad:directory-pathname-p project-path)
-          (let* ((project-name (last-directory project-path))
-                 (system-files (find-system-files project-path
+      (dolist (*project-path* (fad:list-directory projects-path))
+        (when (fad:directory-pathname-p *project-path*)
+          (let* ((project-name (last-directory *project-path*))
+                 (system-files (find-system-files *project-path*
                                                   (blacklisted project-name black-alist))))
             (if (not system-files)
-                (warn "No .asd files found in ~a, skipping." project-path)
-                (with-simple-restart (skip-project "Skip this project, continue with the next.")
-                  (let* ((tgz-path (archive archive-path project-path))
+                (warn "No .asd files found in ~a, skipping." *project-path*)
+                (with-simple-restart (skip-project "Skip project ~S, continue with the next."
+                                                   *project-path*)
+                  (let* ((tgz-path (archive archive-path *project-path*))
                          (project-prefix (pathname-name tgz-path))
                          (project-url (format nil "~a/~a" archive-url (unix-filename tgz-path)))
                          (release-info nil)
@@ -264,7 +268,7 @@ dependency-def := simple-component-name
                                 (md5sum tgz-path)
                                 (tar-content-sha1 tgz-path)
                                 project-prefix
-                                (mapcar (curry #'unix-filename-relative-to project-path)
+                                (mapcar (curry #'unix-filename-relative-to *project-path*)
                                         system-files)))
                     (dolist (system-file system-files)
                       (let ((*print-case* :downcase)
