@@ -2,6 +2,18 @@
  Quickdist's ChangeLog
 =======================
 
+0.4.1 (2019-01-27)
+==================
+
+Fixed issue with loading of asd files having a ``:defsystem-depends-on``
+argument in the ``defsystem`` form. Before this fix, quickdist wasn't
+able to process such asd files. Here is an example:
+
+https://github.com/40ants/log4cl-json/blob/25f5f93032c95423cdacbd7205a8647f47297c41/log4cl-json-test.asd#L13
+
+Error it was throwing was a ``asdf:missing-dependency``.
+
+
 0.4.0 (2018-12-22)
 ==================
 

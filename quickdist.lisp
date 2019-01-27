@@ -197,7 +197,21 @@ dependency-def := simple-component-name
              (copy-hash-table-partially
               asdf/system-registry:*registered-systems*
               :keys systems-before)))
-      (asdf:load-asd asd-path)
+      (tagbody
+       asd-loader
+         (handler-case (asdf:load-asd asd-path)
+           (asdf:missing-dependency (condition)
+             (let ((missing-system-name (asdf/find-component:missing-requires condition)))
+               #+quicklisp
+               (progn
+                 ;; We need this to process dependencies from :defsystem-depends-on
+                 ;; argument of the `defsystem', like
+                 (log:info "Loading a missing dependency" missing-system-name)
+                 (ql:quickload missing-system-name)
+                 (log:info "Restarting to load asd file again" asd-path)
+                 (go asd-loader))
+               #-quicklisp
+               (log:error "Unable to a missing dependency because quicklisp is unavailable" missing-system-name)))))
      
       (flet ((was-loaded-before (system-name)
                (member system-name
