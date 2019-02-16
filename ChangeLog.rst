@@ -2,6 +2,25 @@
  Quickdist's ChangeLog
 =======================
 
+0.5.0 (2019-02-16)
+==================
+
+Format of the ``black-alist`` was changed.
+
+Now it is possible to ignore not only systems, but also their
+dependencies. This could be configured per-project or globally
+via ``*blacklisted-systems*`` and ``*blacklisted-dependencies*``
+variables.
+
+By default, all SBCL's contrib systems are ignored because they can
+cause issues for other implementation.
+
+Format for ``black-alist`` is following::
+
+  ("the-project" :systems ("system-to-ignore" "other-system")
+                 :dependencies ("dep-system" "other-depsystem"))
+
+
 0.4.1 (2019-01-27)
 ==================
 

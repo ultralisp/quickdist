@@ -22,6 +22,39 @@ system-index-url: {{base-url}}/{{name}}/{{version}}/systems.txt
   "During building of the distribution, this special variable will point to a currently processed project.")
 
 
+(defparameter *blacklisted-systems* nil
+  "A list of globally blacklisted systems. To block systems on per-project basis, pass a black-alist
+   argument to quickdist function.")
+
+(defparameter *blacklisted-dependencies*
+  ;; Some projects specify an implementation dependent dependencies
+  ;; like here: https://github.com/fukamachi/quri/blob/76b75103f21ead092c9f715512fa82441ef61185/quri.asd#L23
+  ;; and we need to exclude them from the distribution.
+  #+sbcl
+  (list :sb-aclrepl
+        :sb-bsd-sockets
+        :sb-capstone
+        :sb-cltl2
+        :sb-concurrency
+        :sb-cover
+        :sb-executable
+        :sb-gmp
+        :sb-grovel
+        :sb-introspect
+        :sb-md5
+        :sb-mpfr
+        :sb-posix
+        :sb-queue
+        :sb-rotate-byte
+        :sb-rt
+        :sb-simple-streams
+        :sb-sprof)
+  #-sbcl
+  nil
+  "A list of globally blacklisted systems. To block systems on per-project basis, pass a black-alist
+   argument to quickdist function.")
+
+
 (defun render-template (template data)
   (mustache:render* template
                     (alexandria:plist-alist data)))
@@ -78,7 +111,8 @@ system-index-url: {{base-url}}/{{name}}/{{version}}/systems.txt
 
 
 (defun find-system-files (path black-list)
-  (flet ((system-name->filename (name) (concatenate 'string name ".asd")))
+  (flet ((system-name->filename (name)
+           (concatenate 'string name ".asd")))
     (let ((system-files nil)
           (blacklisted-filenames (mapcar #'system-name->filename black-list))
           (distignoredp (make-distignore-predicate path)))
@@ -238,14 +272,39 @@ dependency-def := simple-component-name
     (subseq path-name (mismatch base-name path-name))))
 
 
-(defun blacklisted (project-name black-alist)
+(defun get-blacklist-info (project-name black-alist)
   (let ((project-string (stringify project-name)))
-    (when-let ((blacklisted (assoc project-string black-alist :test #'equal)))
+    (when-let ((blacklisted (assoc project-string
+                                   black-alist
+                                   :test #'string-equal)))
       (rest blacklisted))))
 
 
-(defun blacklistedp (project-name system-name black-alist)
-  (find (stringify system-name) (blacklisted project-name black-alist)))
+(defun get-blacklisted-systems (project-name black-alist)
+  (append
+   (getf (get-blacklist-info project-name black-alist)
+         :systems)
+   *blacklisted-systems*))
+
+
+(defun get-blacklisted-dependencies (project-name black-alist)
+  (append
+   (getf (get-blacklist-info project-name black-alist)
+         :dependencies)
+   *blacklisted-dependencies*))
+
+
+(defun blacklisted-system-p (project-name system-name black-alist)
+  (find (stringify system-name)
+        (get-blacklisted-systems project-name black-alist)
+        :test #'string-equal ))
+
+
+(defun filter-blacklisted-dependencies (project-name black-alist dependencies)
+  (let ((blacklisted (get-blacklisted-dependencies project-name black-alist)))
+    (remove-if (lambda (item)
+                 (member item blacklisted :test #'string-equal))
+               dependencies)))
 
 
 (defun create-dist (projects-path dist-path archive-path archive-url black-alist)
@@ -264,7 +323,8 @@ dependency-def := simple-component-name
         (when (fad:directory-pathname-p *project-path*)
           (let* ((project-name (last-directory *project-path*))
                  (system-files (find-system-files *project-path*
-                                                  (blacklisted project-name black-alist))))
+                                                  (get-blacklisted-systems project-name
+                                                                           black-alist))))
             (if (not system-files)
                 (warn "No .asd files found in ~a, skipping." *project-path*)
                 (with-simple-restart (skip-project "Skip project ~S, continue with the next."
@@ -287,13 +347,18 @@ dependency-def := simple-component-name
                     (dolist (system-file system-files)
                       (let ((*print-case* :downcase)
                             (system-name (pathname-name system-file)))
-                        (dolist (name-and-dependencies (get-systems system-file))
-                          (unless (blacklistedp project-name system-name black-alist)
-                            (push (list project-name
-                                        system-name
-                                        (first name-and-dependencies)
-                                        (rest name-and-dependencies))
-                                  systems-info)))))
+                        (loop for name-and-dependencies in (get-systems system-file)
+                              for name = (first name-and-dependencies)
+                              for dependencies = (rest name-and-dependencies)
+                              for filtered-dependencies = (filter-blacklisted-dependencies project-name
+                                                                                           black-alist
+                                                                                           dependencies)
+                              unless (blacklisted-system-p project-name system-name black-alist)
+                                do (push (list project-name
+                                               system-name
+                                               name
+                                               filtered-dependencies)
+                                         systems-info))))
                     ;; We are printing data to dist files only
                     ;; after all information was collected, because
                     ;; if some some signal was will be raised during
@@ -310,6 +375,14 @@ dependency-def := simple-component-name
 
 
 (defun quickdist (&key name (version :today) base-url projects-dir dists-dir black-alist)
+  "Build a distribution.
+
+   black-alist is a list of the following form:
+   (list (list \"quri\" :systems (list \"quri-examples\")
+                        :dependencies (list \"foo-bar\")))
+
+   Some systems and dependencies are ignored by default, you'll find their list in the
+   *blacklisted-systems* and *blacklisted-dependencies* variables."
   (let* ((version (if (not (eq version :today)) version (format-date (get-universal-time))))
          (projects-path (fad:pathname-as-directory (probe-file projects-dir)))
          (template-data (list :name name :version version
@@ -326,7 +399,7 @@ dependency-def := simple-component-name
     (ensure-directories-exist dist-path :verbose t)
     (ensure-directories-exist archive-path :verbose t)
     (create-dist projects-path dist-path archive-path archive-url
-                 (mapcar #'stringify-list black-alist))
+                 black-alist)
     (let ((distinfo (render-template *distinfo-template* template-data)))
       (dolist (path (list (make-pathname :name "distinfo" :type "txt" :defaults dist-path)
                           distinfo-path))
