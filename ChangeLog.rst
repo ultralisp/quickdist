@@ -2,6 +2,14 @@
  Quickdist's ChangeLog
 =======================
 
+0.6.0 (2019-02-17)
+==================
+
+Code was refactored to make it possible to reuse parts responsible for
+system's info extraction and archive creation.
+
+Also, this made the main function ``create-dist`` more readable.
+
 0.5.0 (2019-02-16)
 ==================
 

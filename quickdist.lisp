@@ -55,6 +55,67 @@ system-index-url: {{base-url}}/{{name}}/{{version}}/systems.txt
    argument to quickdist function.")
 
 
+(defclass system-info ()
+  ((path :initarg :path
+         :reader get-path)
+   (project-name :initarg :project-name
+                 :reader get-project-name)
+   (filename :initarg :filename
+             :reader get-filename)
+   (name :initarg :name
+         :reader get-name)
+   (dependencies :initarg :dependencies
+                 :reader get-dependencies)))
+
+
+(defclass release-info ()
+  ((project-name :initarg :project-name
+                 :reader get-project-name)
+   (project-url :initarg :project-url
+                :reader get-project-url)
+   (file-size :initarg :file-size
+              :reader get-file-size)
+   (md5sum :initarg :md5sum
+           :reader get-md5sum)
+   (content-sha1 :initarg :content-sha1
+                 :reader get-content-sha1)
+   (project-prefix :initarg :project-prefix
+                   :reader get-project-prefix)
+   (system-files :initarg :system-files
+                 :reader get-system-files)))
+
+
+(defmacro def-print-method (((obj class)) format-string &body body)
+  "Defines a print-object method which uses 'print-unreadable-object only when *print-pretty* is True."
+  (let ((plain-format-string (concatenate 'string format-string "~%")))
+    `(defmethod print-object ((,obj ,class) stream)
+       (if *print-pretty*
+           (print-unreadable-object (,obj stream :type t)
+             (format stream ,format-string
+                     ,@body))
+           (format stream ,plain-format-string
+                   ,@body)))))
+
+
+(def-print-method ((obj system-info))
+                  "~A ~A ~A~{ ~A~}"
+  (get-project-name obj)
+  (get-filename obj)
+  (get-name obj)
+  (get-dependencies obj))
+
+
+(def-print-method ((obj release-info))
+                  "~A ~A ~A ~A ~A ~A~{ ~A~}"
+  (get-project-name obj)
+  (get-project-url obj)
+  (get-file-size obj)
+  (get-md5sum obj)
+  (get-content-sha1 obj)
+  (get-project-prefix obj)
+  (get-system-files obj))
+
+
 (defun render-template (template data)
   (mustache:render* template
                     (alexandria:plist-alist data)))
@@ -307,6 +368,58 @@ dependency-def := simple-component-name
                dependencies)))
 
 
+(defun make-archive (project-path project-name system-files archive-path archive-url)
+  (let* ((tgz-path (archive archive-path project-path))
+        (project-prefix (pathname-name tgz-path))
+        (project-url (format nil "~a/~a" archive-url (unix-filename tgz-path))))
+    (make-instance 'release-info
+                   :project-name project-name
+                   :project-url project-url
+                   :file-size (file-size tgz-path)
+                   :md5sum (md5sum tgz-path)
+                   :content-sha1 (tar-content-sha1 tgz-path)
+                   :project-prefix project-prefix
+                   :system-files (mapcar (curry #'unix-filename-relative-to project-path)
+                                         system-files))))
+
+
+(defun make-systems-info (project-path &key black-alist)
+  (let* ((project-name (last-directory project-path))
+         (system-files (find-system-files project-path
+                                          (get-blacklisted-systems project-name
+                                                                   black-alist))))
+    (cond ((not system-files)
+           (log:warn "No .asd files found in" project-path))
+          (t
+           (with-simple-restart (skip-project "Skip project ~S, continue with the next."
+                                              project-path)
+             (log:info "Processing" project-name)
+
+             (loop with *print-case* = :downcase
+                   with systems-info = nil
+                   for system-file in system-files
+                   for filename = (pathname-name system-file)
+                   do (loop for name-and-dependencies in (get-systems system-file)
+                            for name = (first name-and-dependencies)
+                            for dependencies = (rest name-and-dependencies)
+                            for filtered-dependencies = (filter-blacklisted-dependencies project-name
+                                                                                         black-alist
+                                                                                         dependencies)
+                            unless (blacklisted-system-p project-name filename black-alist)
+                              do (push (make-instance 'system-info
+                                                      :path system-file
+                                                      :project-name project-name
+                                                      :filename filename
+                                                      :name name
+                                                      :dependencies filtered-dependencies)
+                                       systems-info))
+                   finally (return systems-info)))))))
+
+
+(defmethod get-system-files ((systems-info list))
+  (mapcar #'get-path systems-info))
+
+
 (defun create-dist (projects-path dist-path archive-path archive-url black-alist)
   ;; Here we need to add an additional slash to the end of the path
   ;; to the sources, to make ASDF search recursively for available systems
@@ -321,57 +434,24 @@ dependency-def := simple-component-name
       (write-line "# project system-file system-name [dependency1..dependencyN]" system-index)
       (dolist (*project-path* (fad:list-directory projects-path))
         (when (fad:directory-pathname-p *project-path*)
-          (let* ((project-name (last-directory *project-path*))
-                 (system-files (find-system-files *project-path*
-                                                  (get-blacklisted-systems project-name
-                                                                           black-alist))))
-            (if (not system-files)
-                (warn "No .asd files found in ~a, skipping." *project-path*)
-                (with-simple-restart (skip-project "Skip project ~S, continue with the next."
-                                                   *project-path*)
-                  (let* ((tgz-path (archive archive-path *project-path*))
-                         (project-prefix (pathname-name tgz-path))
-                         (project-url (format nil "~a/~a" archive-url (unix-filename tgz-path)))
-                         (release-info nil)
-                         (systems-info nil))
-                    (log:info "Processing" project-name)
-                    (setf release-info
-                          (list project-name
-                                project-url
-                                (file-size tgz-path)
-                                (md5sum tgz-path)
-                                (tar-content-sha1 tgz-path)
-                                project-prefix
-                                (mapcar (curry #'unix-filename-relative-to *project-path*)
-                                        system-files)))
-                    (dolist (system-file system-files)
-                      (let ((*print-case* :downcase)
-                            (system-name (pathname-name system-file)))
-                        (loop for name-and-dependencies in (get-systems system-file)
-                              for name = (first name-and-dependencies)
-                              for dependencies = (rest name-and-dependencies)
-                              for filtered-dependencies = (filter-blacklisted-dependencies project-name
-                                                                                           black-alist
-                                                                                           dependencies)
-                              unless (blacklisted-system-p project-name system-name black-alist)
-                                do (push (list project-name
-                                               system-name
-                                               name
-                                               filtered-dependencies)
-                                         systems-info))))
-                    ;; We are printing data to dist files only
-                    ;; after all information was collected, because
-                    ;; if some some signal was will be raised during
-                    ;; information collection, we dont' want
-                    ;; to output any information about this broken system.
-                    (apply #'format
-                           release-index
-                           "~a ~a ~a ~a ~a ~a~{ ~a~}~%"
-                           release-info)
-                    (dolist (system-info systems-info)
-                      (apply #'format
-                             system-index "~a ~a ~a~{ ~a~}~%"
-                             system-info)))))))))))
+          (let* ((project-name (last-directory *project-path*)))
+            (log:info "Processing" project-name)
+            
+            (with-simple-restart (skip-project "Skip project ~S, continue with the next."
+                                               *project-path*)
+              (let* ((systems-info (make-systems-info *project-path* :black-alist black-alist))
+                     (release-info (make-archive *project-path*
+                                                 project-name
+                                                 (get-system-files systems-info)
+                                                 archive-path
+                                                 archive-url)))
+                (write release-info
+                       :stream release-index
+                       :pretty nil)
+                (loop for system-info in systems-info
+                      do (write system-info
+                                :stream system-index
+                                :pretty nil))))))))))
 
 
 (defun quickdist (&key name (version :today) base-url projects-dir dists-dir black-alist)
