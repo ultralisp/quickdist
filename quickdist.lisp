@@ -73,6 +73,9 @@ system-index-url: {{base-url}}/{{name}}/{{version}}/systems.txt
                  :reader get-project-name)
    (project-url :initarg :project-url
                 :reader get-project-url)
+   (archive-path :initarg :archive-path
+                 :documentation "A path on the local filesystem where archive is located."
+                 :reader get-archive-path)
    (file-size :initarg :file-size
               :reader get-file-size)
    (md5sum :initarg :md5sum
@@ -375,6 +378,7 @@ dependency-def := simple-component-name
     (make-instance 'release-info
                    :project-name project-name
                    :project-url project-url
+                   :archive-path tgz-path
                    :file-size (file-size tgz-path)
                    :md5sum (md5sum tgz-path)
                    :content-sha1 (tar-content-sha1 tgz-path)

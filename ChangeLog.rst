@@ -2,6 +2,14 @@
  Quickdist's ChangeLog
 =======================
 
+0.7.0 (2019-02-23)
+==================
+
+Class ``release-info`` now contains additional slot ``archive-path``.
+It points to a ``.tgz`` file on the filesystem.
+Also it's accessor ``get-archive-path`` was exported from the
+``quickdist`` package.
+
 0.6.0 (2019-02-17)
 ==================
 

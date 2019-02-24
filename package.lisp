@@ -29,4 +29,5 @@
              #:get-md5sum
              #:get-content-sha1
              #:get-project-prefix
-             #:get-system-files))
+             #:get-system-files
+             #:get-archive-path))
