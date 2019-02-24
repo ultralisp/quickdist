@@ -2,6 +2,14 @@
  Quickdist's ChangeLog
 =======================
 
+0.8.0 (2019-02-24)
+==================
+
+Now ``system-info`` has a relative path in the ``filename`` slot.
+Also, ``system-files`` slot of the ``release-info`` object contains
+a list of relative paths. And ``get-system-files`` called on the list of
+``system-info`` objects returns relative paths.
+
 0.7.0 (2019-02-23)
 ==================
 

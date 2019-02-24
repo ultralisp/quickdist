@@ -383,8 +383,7 @@ dependency-def := simple-component-name
                    :md5sum (md5sum tgz-path)
                    :content-sha1 (tar-content-sha1 tgz-path)
                    :project-prefix project-prefix
-                   :system-files (mapcar (curry #'unix-filename-relative-to project-path)
-                                         system-files))))
+                   :system-files system-files)))
 
 
 (defun make-systems-info (project-path &key black-alist)
@@ -402,6 +401,8 @@ dependency-def := simple-component-name
              (loop with *print-case* = :downcase
                    with systems-info = nil
                    for system-file in system-files
+                   for relative-system-file = (unix-filename-relative-to project-path
+                                                                         system-file)
                    for filename = (pathname-name system-file)
                    do (loop for name-and-dependencies in (get-systems system-file)
                             for name = (first name-and-dependencies)
@@ -413,7 +414,7 @@ dependency-def := simple-component-name
                               do (push (make-instance 'system-info
                                                       :path system-file
                                                       :project-name project-name
-                                                      :filename filename
+                                                      :filename relative-system-file
                                                       :name name
                                                       :dependencies filtered-dependencies)
                                        systems-info))
@@ -421,7 +422,7 @@ dependency-def := simple-component-name
 
 
 (defmethod get-system-files ((systems-info list))
-  (mapcar #'get-path systems-info))
+  (mapcar #'get-filename systems-info))
 
 
 (defun create-dist (projects-path dist-path archive-path archive-url black-alist)
