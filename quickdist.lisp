@@ -225,7 +225,7 @@ dependency-def := simple-component-name
                        dep)))
 
 
-(defun get-external-dependencies (system-name)
+(defcached get-external-dependencies (system-name)
   "Returns direct external dependencies for the system.
 
    If system is of package inferred class, then
@@ -237,6 +237,8 @@ dependency-def := simple-component-name
 
    Resulting value is a list of strings of systems names sorted alphabetically."
   (check-type system-name string)
+  (log:debug "Retrieving external dependencies for" system-name)
+
   (let* ((system (asdf:find-system system-name))
          (primary-name (asdf:primary-system-name system))
          (defsystem-dependencies (asdf:system-defsystem-depends-on system))
@@ -315,15 +317,19 @@ dependency-def := simple-component-name
                (member system-name
                        systems-before
                        :test #'string-equal)))
-        (sort (loop for system-name in (remove-if #'was-loaded-before (asdf:registered-systems))
-                    for primary-name = (asdf:primary-system-name system-name)
-                    for dependencies = (get-external-dependencies primary-name)
-                    when (string-equal primary-name
-                                       loaded-system-name)
-                      collect (list* system-name
-                                     dependencies))
-              #'string-lessp
-              :key #'first)))))
+        (log:debug "Collecting dependencies" asd-path)
+        (let ((dependencies (loop for system-name in (remove-if #'was-loaded-before (asdf:registered-systems))
+                                  for primary-name = (asdf:primary-system-name system-name)
+                                  for dependencies = (get-external-dependencies primary-name)
+                                  when (string-equal primary-name
+                                                     loaded-system-name)
+                                    do (log:info "Dependencies for" primary-name "are collected")
+                                    and collect (list* system-name
+                                                       dependencies))))
+          (log:debug "Dependencies are collected")
+          (sort dependencies
+                #'string-lessp
+                :key #'first))))))
 
 
 (defun unix-filename (path)
@@ -396,7 +402,7 @@ dependency-def := simple-component-name
           (t
            (with-simple-restart (skip-project "Skip project ~S, continue with the next."
                                               project-path)
-             (log:info "Processing" project-name)
+             (log:info "Processing make-systems-info" project-name)
 
              (loop with *print-case* = :downcase
                    with systems-info = nil
@@ -440,7 +446,7 @@ dependency-def := simple-component-name
       (dolist (*project-path* (fad:list-directory projects-path))
         (when (fad:directory-pathname-p *project-path*)
           (let* ((project-name (last-directory *project-path*)))
-            (log:info "Processing" project-name)
+            (log:info "Processing create-dist" project-name)
             
             (with-simple-restart (skip-project "Skip project ~S, continue with the next."
                                                *project-path*)

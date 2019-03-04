@@ -2,6 +2,13 @@
  Quickdist's ChangeLog
 =======================
 
+0.9.0 (2019-03-04)
+==================
+
+* Now function ``get-external-dependencies`` caches it's results
+  and it shouldn't lead to crach on ``cl-git`` anymore.
+* Added more logging in the code which collects dependencies.
+
 0.8.0 (2019-02-24)
 ==================
 

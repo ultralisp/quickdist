@@ -12,6 +12,7 @@
                quicklisp
                split-sequence
                cl-mustache
+               function-cache
                log4cl)
   :serial t
   :components ((:file "package")
