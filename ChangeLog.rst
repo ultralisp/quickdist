@@ -2,6 +2,17 @@
  Quickdist's ChangeLog
 =======================
 
+0.10.0 (2019-03-08)
+===================
+
+* ASDF's package inferred systems are supported. A separate line with
+  dependencies for each of subsystem will be created in the systems.txt
+  file. This gives ability to use ``(ql:quickload :weblocks/server)``
+  and to load only a part of package inferred system.
+* Also, there is another incompatible change. Now only direct
+  dependencies are collected. However this change makes ``quickdist``
+  behaviour similar to original Quicklisp distribution's.
+
 0.9.0 (2019-03-04)
 ==================
 

@@ -235,38 +235,39 @@ dependency-def := simple-component-name
    For external dependendencies, which are subcomponents of other package
    inferred system, a name of a primary system is returned.
 
-   Resulting value is a list of strings of systems names sorted alphabetically."
+   Resulting value is a list of lists where first item is a system-name or it's
+   subsystem's name and the reset is their direct depdencies names sorted alphabetically."
   (check-type system-name string)
   (log:debug "Retrieving external dependencies for" system-name)
 
-  (let* ((system (asdf:find-system system-name))
-         (primary-name (asdf:primary-system-name system))
-         (defsystem-dependencies (asdf:system-defsystem-depends-on system))
-         (usual-dependencies (asdf:system-depends-on system))
-         (all-direct-dependencies (nconc defsystem-dependencies
-                                         usual-dependencies))
-         (normalized-deps (mapcar #'normalize-dependency-name
-                                  all-direct-dependencies))
-         (expanded-deps (loop for dep in normalized-deps
-                              for dep-primary-name = (asdf:primary-system-name dep)
-                              ;; We only expand inner component of the current
-                              ;; system, because for quicklisp distribution we
-                              ;; need to specify only direct dependencies
-                              if (string-equal primary-name
-                                               dep-primary-name)
-                                appending (get-external-dependencies dep)
-                              else
-                                ;; For external dependency we need to return
-                                ;; its primary system's name because
-                                ;; only primary systems are listed in the quicklisp's
-                                ;; metadata.
-                                collect dep-primary-name)))
-    (delete-duplicates normalized-deps
-                       :test 'string-equal)
-    ;; (delete-duplicates (sort expanded-deps
-    ;;                          #'string<)
-    ;;                    :test 'string-equal)
-    ))
+  (let ((already-collected (make-hash-table :test 'equal)))
+    (labels ((recursive-get-external-dependencies (system-name)
+               (let* ((system (asdf:find-system system-name))
+                      (primary-name (asdf:primary-system-name system))
+                      (defsystem-dependencies (asdf:system-defsystem-depends-on system))
+                      (usual-dependencies (asdf:system-depends-on system))
+                      (all-direct-dependencies (nconc defsystem-dependencies
+                                                      usual-dependencies))
+                      (normalized-deps (mapcar #'normalize-dependency-name
+                                               all-direct-dependencies))
+                      (deps (delete-duplicates normalized-deps
+                                               :test 'string-equal))
+                      (subsystems (loop for dep in deps
+                                        for dep-primary-name = (asdf:primary-system-name dep)
+                                        ;; We only expand inner component of the current
+                                        ;; system, because for quicklisp distribution we
+                                        ;; need to specify only direct dependencies
+                                        when (and (not (gethash dep already-collected))
+                                                  (string-equal primary-name
+                                                                dep-primary-name))
+                                          do (setf (gethash dep already-collected)
+                                                   t)
+                                          and appending (recursive-get-external-dependencies dep))))
+                 (list* (list* system-name deps)
+                        subsystems))))
+      (sort (recursive-get-external-dependencies system-name)
+            #'string<
+            :key #'first))))
 
 
 (defun copy-hash-table-partially (table &key keys)
@@ -326,8 +327,7 @@ dependency-def := simple-component-name
                                   when (string-equal primary-name
                                                      loaded-system-name)
                                     do (log:info "Dependencies for" system-name "are collected")
-                                    and collect (list* system-name
-                                                       (get-external-dependencies system-name)))))
+                                    and appending (get-external-dependencies system-name))))
           (log:debug "Dependencies are collected")
           (sort dependencies
                 #'string-lessp
