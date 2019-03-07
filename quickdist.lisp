@@ -261,9 +261,12 @@ dependency-def := simple-component-name
                                 ;; only primary systems are listed in the quicklisp's
                                 ;; metadata.
                                 collect dep-primary-name)))
-    (delete-duplicates (sort expanded-deps
-                             #'string<)
-                       :test 'string-equal)))
+    (delete-duplicates normalized-deps
+                       :test 'string-equal)
+    ;; (delete-duplicates (sort expanded-deps
+    ;;                          #'string<)
+    ;;                    :test 'string-equal)
+    ))
 
 
 (defun copy-hash-table-partially (table &key keys)
@@ -320,12 +323,11 @@ dependency-def := simple-component-name
         (log:debug "Collecting dependencies" asd-path)
         (let ((dependencies (loop for system-name in (remove-if #'was-loaded-before (asdf:registered-systems))
                                   for primary-name = (asdf:primary-system-name system-name)
-                                  for dependencies = (get-external-dependencies primary-name)
                                   when (string-equal primary-name
                                                      loaded-system-name)
-                                    do (log:info "Dependencies for" primary-name "are collected")
+                                    do (log:info "Dependencies for" system-name "are collected")
                                     and collect (list* system-name
-                                                       dependencies))))
+                                                       (get-external-dependencies system-name)))))
           (log:debug "Dependencies are collected")
           (sort dependencies
                 #'string-lessp
