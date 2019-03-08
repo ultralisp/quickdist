@@ -430,7 +430,8 @@ dependency-def := simple-component-name
 
 
 (defmethod get-system-files ((systems-info list))
-  (mapcar #'get-filename systems-info))
+  (remove-duplicates (mapcar #'get-filename systems-info)
+                     :test #'equal))
 
 
 (defun create-dist (projects-path dist-path archive-path archive-url black-alist)

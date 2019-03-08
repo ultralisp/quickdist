@@ -2,6 +2,11 @@
  Quickdist's ChangeLog
 =======================
 
+0.10.1 (2019-03-08)
+===================
+
+* Fixed function ``get-system-files``. Now it returns unique filenames.
+
 0.10.0 (2019-03-08)
 ===================
 
