@@ -2,6 +2,31 @@
  Quickdist's ChangeLog
 =======================
 
+0.11.0 (2019-03-09)
+===================
+
+Changed a way to ignore asd files and system dependencies.
+
+Now only toplevel ASD files of each project are processed. This was
+changed, because some projects usually have something like
+``example.asd`` or ``skeleton.asd`` which should not be included into
+the distribution.
+
+If some of your projects have asd files in nested directories and you
+want to include them, you need to specify a predicate which will allow
+them. This should looks like this:
+
+.. code:: common-lisp
+
+   (quickdist:quickdist :name "foo"
+                        :projects-dir #P"~/projects/"
+                        :dists-dir #P"~/dist/"
+                        :get-ignore-filename-p (lambda (project)
+                                                 (if (string-equal project "my-cool-project")
+                                                     (constantly nil)
+                                                     'quickdist:not-toplevel-filename-p)))                            
+
+
 0.10.1 (2019-03-08)
 ===================
 

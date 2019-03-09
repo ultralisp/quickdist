@@ -7,8 +7,7 @@
   (:import-from #:function-cache
                 #:defcached)
   (:export #:quickdist
-           #:*blacklisted-systems*
-           #:*blacklisted-dependencies*
+           #:*implementation-systems*
            #:*distinfo-template*
            #:*distinfo-file-template*
            #:*dist-dir-template*
@@ -32,4 +31,6 @@
            #:get-content-sha1
            #:get-project-prefix
            #:get-system-files
-           #:get-archive-path))
+           #:get-archive-path
+           #:implementation-system-p
+           #:not-toplevel-filename-p))

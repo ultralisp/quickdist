@@ -22,11 +22,7 @@ system-index-url: {{base-url}}/{{name}}/{{version}}/systems.txt
   "During building of the distribution, this special variable will point to a currently processed project.")
 
 
-(defparameter *blacklisted-systems* nil
-  "A list of globally blacklisted systems. To block systems on per-project basis, pass a black-alist
-   argument to quickdist function.")
-
-(defparameter *blacklisted-dependencies*
+(defparameter *implementation-systems*
   ;; Some projects specify an implementation dependent dependencies
   ;; like here: https://github.com/fukamachi/quri/blob/76b75103f21ead092c9f715512fa82441ef61185/quri.asd#L23
   ;; and we need to exclude them from the distribution.
@@ -174,20 +170,30 @@ system-index-url: {{base-url}}/{{name}}/{{version}}/systems.txt
     (constantly nil)))
 
 
-(defun find-system-files (path black-list)
-  (flet ((system-name->filename (name)
-           (concatenate 'string name ".asd")))
-    (let ((system-files nil)
-          (blacklisted-filenames (mapcar #'system-name->filename black-list))
-          (distignoredp (make-distignore-predicate path)))
-      (flet ((add-system-file (path) (push path system-files))
+(defun find-system-files (path &key (ignore-filename-p 'not-toplevel-filename-p))
+  "Returns a list of .asd files under the path.
 
-             (asd-file-p (path) (and (string-equal "asd" (pathname-type path))
-                                     (not (find (file-namestring path) blacklisted-filenames
-                                                :test #'equalp))
-                                     (not (funcall distignoredp path)))))
-        (fad:walk-directory path #'add-system-file :test #'asd-file-p))
-      (sort system-files #'string< :key #'pathname-name))))
+   ignore-filename-p is a predicate which takes one string argument - a relative
+   path to asd file. This path will be relative to the `path'."
+  
+  (let ((system-files nil)
+        (distignoredp (make-distignore-predicate path)))
+    (flet ((add-system-file (path) (push path system-files))
+
+           (asd-file-p (file-path)
+             (and (string-equal "asd" (pathname-type file-path))
+                  (not (let* ((file-path (unix-filename-relative-to path
+                                                                   file-path))
+                              (result (funcall ignore-filename-p
+                                               file-path)))
+                         (when result
+                           (log:info "Ignoring asd file because of a predicate"
+                                     path
+                                     file-path))
+                         result))
+                  (not (funcall distignoredp file-path)))))
+      (fad:walk-directory path #'add-system-file :test #'asd-file-p))
+    (sort system-files #'string< :key #'pathname-name)))
 
 
 (defun asdf-dependency-name (form)
@@ -344,45 +350,22 @@ dependency-def := simple-component-name
     (subseq path-name (mismatch base-name path-name))))
 
 
-(defun get-blacklist-info (project-name black-alist)
-  (let ((project-string (stringify project-name)))
-    (when-let ((blacklisted (assoc project-string
-                                   black-alist
-                                   :test #'string-equal)))
-      (rest blacklisted))))
+(defun implementation-system-p (system dependency)
+  "Ignores some system dependencies like sb-rotate-byte."
+  (declare (ignorable system))
+  (member dependency *implementation-systems*
+          :test #'string-equal))
 
 
-(defun get-blacklisted-systems (project-name black-alist)
-  (append
-   (getf (get-blacklist-info project-name black-alist)
-         :systems)
-   *blacklisted-systems*))
-
-
-(defun get-blacklisted-dependencies (project-name black-alist)
-  (append
-   (getf (get-blacklist-info project-name black-alist)
-         :dependencies)
-   *blacklisted-dependencies*))
-
-
-(defun blacklisted-system-p (project-name system-name black-alist)
-  (find (stringify system-name)
-        (get-blacklisted-systems project-name black-alist)
-        :test #'string-equal ))
-
-
-(defun filter-blacklisted-dependencies (project-name black-alist dependencies)
-  (let ((blacklisted (get-blacklisted-dependencies project-name black-alist)))
-    (remove-if (lambda (item)
-                 (member item blacklisted :test #'string-equal))
-               dependencies)))
+(defun not-toplevel-filename-p (filename)
+  (find #\/ filename
+        :test #'char=))
 
 
 (defun make-archive (project-path project-name system-files archive-path archive-url)
   (let* ((tgz-path (archive archive-path project-path))
-        (project-prefix (pathname-name tgz-path))
-        (project-url (format nil "~a/~a" archive-url (unix-filename tgz-path))))
+         (project-prefix (pathname-name tgz-path))
+         (project-url (format nil "~a/~a" archive-url (unix-filename tgz-path))))
     (make-instance 'release-info
                    :project-name project-name
                    :project-url project-url
@@ -394,11 +377,21 @@ dependency-def := simple-component-name
                    :system-files system-files)))
 
 
-(defun make-systems-info (project-path &key black-alist)
+(defun make-systems-info (project-path &key (ignore-filename-p 'not-toplevel-filename-p)
+                                         (ignore-dependency-p 'implementation-system-p))
+  "Makes a list of system-info objects.
+
+   Searches ASDF systems under the project-path.
+
+   ignore-filename-p is a predicate which takes one string argument - a relative
+   path to asd file. This path will be relative to the `project-path'.
+
+   ignore-dependency-p should return is a predicate which takes two string arguments,
+   first - currently proceessed system's name and second - a dependency's name.
+   The predicate should return `t' if this dependency should not be collected."
   (let* ((project-name (last-directory project-path))
          (system-files (find-system-files project-path
-                                          (get-blacklisted-systems project-name
-                                                                   black-alist))))
+                                          :ignore-filename-p ignore-filename-p)))
     (cond ((not system-files)
            (log:warn "No .asd files found in" project-path))
           (t
@@ -411,21 +404,28 @@ dependency-def := simple-component-name
                    for system-file in system-files
                    for relative-system-file = (unix-filename-relative-to project-path
                                                                          system-file)
-                   for filename = (pathname-name system-file)
                    do (loop for name-and-dependencies in (get-systems system-file)
-                            for name = (first name-and-dependencies)
+                            for system-name = (first name-and-dependencies)
                             for dependencies = (rest name-and-dependencies)
-                            for filtered-dependencies = (filter-blacklisted-dependencies project-name
-                                                                                         black-alist
-                                                                                         dependencies)
-                            unless (blacklisted-system-p project-name filename black-alist)
-                              do (push (make-instance 'system-info
-                                                      :path system-file
-                                                      :project-name project-name
-                                                      :filename relative-system-file
-                                                      :name name
-                                                      :dependencies filtered-dependencies)
-                                       systems-info))
+                            for filtered-dependencies = (remove-if
+                                                         (lambda (dependency)
+                                                           (let ((result (funcall ignore-dependency-p
+                                                                                  system-name
+                                                                                  dependency)))
+                                                             (when result
+                                                               (log:info "Ignoring dependency because of a predicate"
+                                                                         project-name
+                                                                         system-name
+                                                                         dependency))
+                                                             result))
+                                                         dependencies)
+                            do (push (make-instance 'system-info
+                                                    :path system-file
+                                                    :project-name project-name
+                                                    :filename relative-system-file
+                                                    :name system-name
+                                                    :dependencies filtered-dependencies)
+                                     systems-info))
                    finally (return systems-info)))))))
 
 
@@ -434,7 +434,22 @@ dependency-def := simple-component-name
                      :test #'equal))
 
 
-(defun create-dist (projects-path dist-path archive-path archive-url black-alist)
+(defun create-dist (projects-path
+                    dist-path
+                    archive-path
+                    archive-url
+                    &key
+                      (get-ignore-filename-p (constantly 'not-toplevel-filename-p))
+                      (get-ignore-dependency-p (constantly 'implementation-system-p)))
+  "Builds a Quicklisp distribution in path `dist-path'.
+
+   `get-ignore-filename-p' should be a function of one argument - `project-name' and
+    should return another function of one argument, which will be used to filter
+    asd files inside of this project's directory.
+
+   `get-ignore-dependency-p' is the same as `get-ignore-filename-p', but for filtering
+    project's dependencies."
+  
   ;; Here we need to add an additional slash to the end of the path
   ;; to the sources, to make ASDF search recursively for available systems
   (let ((registry-path (concatenate 'string (native-namestring projects-path) "/")))
@@ -453,7 +468,9 @@ dependency-def := simple-component-name
             
             (with-simple-restart (skip-project "Skip project ~S, continue with the next."
                                                *project-path*)
-              (let* ((systems-info (make-systems-info *project-path* :black-alist black-alist))
+              (let* ((systems-info (make-systems-info *project-path*
+                                                      :ignore-filename-p (funcall get-ignore-filename-p project-name)
+                                                      :ignore-dependency-p (funcall get-ignore-dependency-p project-name)))
                      (release-info (make-archive *project-path*
                                                  project-name
                                                  (get-system-files systems-info)
@@ -468,15 +485,21 @@ dependency-def := simple-component-name
                                 :pretty nil))))))))))
 
 
-(defun quickdist (&key name (version :today) base-url projects-dir dists-dir black-alist)
-  "Build a distribution.
+(defun quickdist (&key name
+                    (version :today)
+                    base-url
+                    projects-dir
+                    dists-dir
+                    (get-ignore-filename-p (constantly 'not-toplevel-filename-p))
+                    (get-ignore-dependency-p (constantly 'implementation-system-p)))
+  "Builds a Quicklisp distribution in path `dist-path'.
 
-   black-alist is a list of the following form:
-   (list (list \"quri\" :systems (list \"quri-examples\")
-                        :dependencies (list \"foo-bar\")))
+   `get-ignore-filename-p' should be a function of one argument - `project-name' and
+    should return another function of one argument, which will be used to filter
+    asd files inside of this project's directory.
 
-   Some systems and dependencies are ignored by default, you'll find their list in the
-   *blacklisted-systems* and *blacklisted-dependencies* variables."
+   `get-ignore-dependency-p' is the same as `get-ignore-filename-p', but for filtering
+    project's dependencies."
   (let* ((version (if (not (eq version :today)) version (format-date (get-universal-time))))
          (projects-path (fad:pathname-as-directory (probe-file projects-dir)))
          (template-data (list :name name :version version
@@ -493,7 +516,8 @@ dependency-def := simple-component-name
     (ensure-directories-exist dist-path :verbose t)
     (ensure-directories-exist archive-path :verbose t)
     (create-dist projects-path dist-path archive-path archive-url
-                 black-alist)
+                 :get-ignore-filename-p get-ignore-filename-p
+                 :get-ignore-dependency-p get-ignore-dependency-p)
     (let ((distinfo (render-template *distinfo-template* template-data)))
       (dolist (path (list (make-pathname :name "distinfo" :type "txt" :defaults dist-path)
                           distinfo-path))

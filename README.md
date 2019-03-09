@@ -22,6 +22,7 @@ This fork contains following changes from `borodust/quickdist`:
   and this template can be used to retrieve metadata about different versions of the distribution.
 
   Also, a custom template processor was replaced with a call to `cl-mustache` library.
+* Changed a way to ignore asd files and system dependencies.
 
 # Usage
 
