@@ -2,6 +2,12 @@
  Quickdist's ChangeLog
 =======================
 
+0.12.0 (2019-03-13)
+===================
+
+* Fixed problem with duplicating systems in the output.
+* Fixed a crash on trying to load dependencies for ``iolib``.
+
 0.11.0 (2019-03-09)
 ===================
 

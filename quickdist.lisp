@@ -231,7 +231,10 @@ dependency-def := simple-component-name
                        dep)))
 
 
-(defcached get-external-dependencies (system-name)
+(defparameter *external-dependencies* (make-hash-table :test 'equal))
+
+
+(defun get-external-dependencies (system-name)
   "Returns direct external dependencies for the system.
 
    If system is of package inferred class, then
@@ -244,36 +247,43 @@ dependency-def := simple-component-name
    Resulting value is a list of lists where first item is a system-name or it's
    subsystem's name and the reset is their direct depdencies names sorted alphabetically."
   (check-type system-name string)
-  (log:debug "Retrieving external dependencies for" system-name)
 
-  (let ((already-collected (make-hash-table :test 'equal)))
-    (labels ((recursive-get-external-dependencies (system-name)
-               (let* ((system (asdf:find-system system-name))
-                      (primary-name (asdf:primary-system-name system))
-                      (defsystem-dependencies (asdf:system-defsystem-depends-on system))
-                      (usual-dependencies (asdf:system-depends-on system))
-                      (all-direct-dependencies (nconc defsystem-dependencies
-                                                      usual-dependencies))
-                      (normalized-deps (mapcar #'normalize-dependency-name
-                                               all-direct-dependencies))
-                      (deps (delete-duplicates normalized-deps
-                                               :test 'string-equal))
-                      (subsystems (loop for dep in deps
-                                        for dep-primary-name = (asdf:primary-system-name dep)
-                                        ;; We only expand inner component of the current
-                                        ;; system, because for quicklisp distribution we
-                                        ;; need to specify only direct dependencies
-                                        when (and (not (gethash dep already-collected))
-                                                  (string-equal primary-name
-                                                                dep-primary-name))
-                                          do (setf (gethash dep already-collected)
-                                                   t)
-                                          and appending (recursive-get-external-dependencies dep))))
-                 (list* (list* system-name deps)
-                        subsystems))))
-      (sort (recursive-get-external-dependencies system-name)
-            #'string<
-            :key #'first))))
+  (cond ((not (eql (gethash system-name *external-dependencies* :absent)
+                   :absent))
+         (log:debug "Returning external dependencies from cache" system-name)
+         (gethash system-name *external-dependencies*))
+        (t
+         (log:debug "Retrieving external dependencies for" system-name)
+
+         (setf (gethash system-name *external-dependencies*)
+               (let ((already-collected (make-hash-table :test 'equal)))
+                 (let* ((system (asdf:find-system system-name))
+                        (primary-name (asdf:primary-system-name system))
+                        (defsystem-dependencies (asdf:system-defsystem-depends-on system))
+                        (usual-dependencies (asdf:system-depends-on system))
+                        (all-direct-dependencies (nconc defsystem-dependencies
+                                                        usual-dependencies))
+                        (normalized-deps (mapcar #'normalize-dependency-name
+                                                 all-direct-dependencies))
+                        (deps (delete-duplicates normalized-deps
+                                                 :test 'string-equal))
+                        (subsystems (loop for dep in deps
+                                          for dep-primary-name = (asdf:primary-system-name dep)
+                                          ;; We only expand inner component of the current
+                                          ;; system, because for quicklisp distribution we
+                                          ;; need to specify only direct dependencies
+                                          when (and (not (gethash dep already-collected))
+                                                    (string-equal primary-name
+                                                                  dep-primary-name))
+                                            do (setf (gethash dep already-collected)
+                                                     t)
+                                            and appending (get-external-dependencies dep))))
+                   (sort (remove-duplicates
+                          (list* (list* system-name deps)
+                                 subsystems)
+                          :test #'equal)
+                         #'string<
+                         :key #'first)))))))
 
 
 (defun copy-hash-table-partially (table &key keys)
@@ -335,7 +345,8 @@ dependency-def := simple-component-name
                                     do (log:info "Dependencies for" system-name "are collected")
                                     and appending (get-external-dependencies system-name))))
           (log:debug "Dependencies are collected")
-          (sort dependencies
+          (sort (remove-duplicates dependencies
+                                   :test #'equal)
                 #'string-lessp
                 :key #'first))))))
 
@@ -404,7 +415,8 @@ dependency-def := simple-component-name
                    for system-file in system-files
                    for relative-system-file = (unix-filename-relative-to project-path
                                                                          system-file)
-                   do (loop for name-and-dependencies in (get-systems system-file)
+                   for systems = (get-systems system-file)
+                   do (loop for name-and-dependencies in systems
                             for system-name = (first name-and-dependencies)
                             for dependencies = (rest name-and-dependencies)
                             for filtered-dependencies = (remove-if
