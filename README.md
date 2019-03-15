@@ -139,4 +139,3 @@ t
 # Priorities of distributions
 
 When multiple distributions provide the same system, the latest installed distribution is prefered by default.  If this is not what you want, you can inspect priorities with `(ql-dist:preference (ql-dist:find-dist "{dist}")))` and set them with `setf`.  For a finer-grained control projects (`ql-dist:find-release-in-dist`) and systems (`ql-dist:find-system-in-dist`) have preferences too.
-
