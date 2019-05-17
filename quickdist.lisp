@@ -153,22 +153,29 @@ system-index-url: {{base-url}}/{{name}}/{{version}}/systems.txt
     out-path))
 
 
-(defun make-distignore-predicate (path)
-  (if-let ((distignore-file (probe-file (fad:merge-pathnames-as-file path ".distignore"))))
-    (flet ((trim-string (string)
-             (string-trim '(#\Tab #\Space #\Newline) string)))
-      (let* ((regexes (split-sequence:split-sequence #\Newline
-                                                     (read-file-into-string distignore-file)))
-             (scanners (mapcar #'ppcre:create-scanner (mapcar #'trim-string regexes))))
-        (lambda (string)
-          (let ((path (native-namestring path))
-                (string (native-namestring string)))
-            (when (starts-with-subseq path string)
-              (let ((subpath (enough-namestring string path)))
-                (loop for scanner in scanners
-                        thereis (ppcre:scan scanner subpath))))))))
-    (constantly nil)))
+(defun resolve-distignore-path (path)
+  "Retuns a .distignore settings file for a project. Return's global configuration if missing."
+  (uiop:find-preferred-file
+   (list
+    (fad:merge-pathnames-as-file path ".distignore")
+    (uiop:xdg-config-home "quickdist" ".distignore"))))
 
+(defun make-distignore-predicate (path)
+  (let ((distignore-path (resolve-distignore-path path)))
+    (if-let ((distignore-file (and distignore-path (probe-file distignore-path))))
+      (flet ((trim-string (string)
+               (string-trim '(#\Tab #\Space #\Newline) string)))
+        (let* ((regexes (split-sequence:split-sequence #\Newline
+                                                       (read-file-into-string distignore-file)))
+               (scanners (mapcar #'ppcre:create-scanner (mapcar #'trim-string regexes))))
+          (lambda (string)
+            (let ((path (native-namestring path))
+                  (string (native-namestring string)))
+              (when (starts-with-subseq path string)
+                (let ((subpath (enough-namestring string path)))
+                  (loop for scanner in scanners
+                          thereis (ppcre:scan scanner subpath))))))))
+      (constantly nil))))
 
 (defun find-system-files (path &key (ignore-filename-p 'not-toplevel-filename-p))
   "Returns a list of .asd files under the path.
