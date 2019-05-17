@@ -2,6 +2,11 @@
  Quickdist's ChangeLog
 =======================
 
+0.13.0 (2019-05-17)
+===================
+
+* Allow quickdist to read ``.distignore`` file from user configuration folder to define globally ignored files.
+
 0.12.0 (2019-03-13)
 ===================
 
