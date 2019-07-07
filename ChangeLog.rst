@@ -2,6 +2,13 @@
  Quickdist's ChangeLog
 =======================
 
+0.14.0 (2019-07-07)
+===================
+
+* Fixed ``.distignore`` file processing. Previosly, if it contains
+  an empty line, any ``.asd`` file was ignored and this caused
+  a few Ultralisp distribution version breakage.
+
 0.13.0 (2019-05-17)
 ===================
 

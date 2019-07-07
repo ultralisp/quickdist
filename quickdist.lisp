@@ -161,13 +161,18 @@ system-index-url: {{base-url}}/{{name}}/{{version}}/systems.txt
     (uiop:xdg-config-home "quickdist" ".distignore"))))
 
 (defun make-distignore-predicate (path)
+  ".distignore file should contain regexes, which will be matched against
+   relative asd files inside of the given path."
   (let ((distignore-path (resolve-distignore-path path)))
     (if-let ((distignore-file (and distignore-path (probe-file distignore-path))))
       (flet ((trim-string (string)
                (string-trim '(#\Tab #\Space #\Newline) string)))
-        (let* ((regexes (split-sequence:split-sequence #\Newline
-                                                       (read-file-into-string distignore-file)))
-               (scanners (mapcar #'ppcre:create-scanner (mapcar #'trim-string regexes))))
+        (let* ((scanners (loop with content = (read-file-into-string distignore-file)
+                               for line in (split-sequence:split-sequence #\Newline
+                                                                          content)
+                               for trimmed-line = (trim-string line)
+                               unless (string= trimmed-line "")
+                                 collect (ppcre:create-scanner trimmed-line))))
           (lambda (string)
             (let ((path (native-namestring path))
                   (string (native-namestring string)))
@@ -188,17 +193,26 @@ system-index-url: {{base-url}}/{{name}}/{{version}}/systems.txt
     (flet ((add-system-file (path) (push path system-files))
 
            (asd-file-p (file-path)
-             (and (string-equal "asd" (pathname-type file-path))
-                  (not (let* ((file-path (unix-filename-relative-to path
-                                                                   file-path))
-                              (result (funcall ignore-filename-p
-                                               file-path)))
-                         (when result
-                           (log:info "Ignoring asd file because of a predicate"
-                                     path
-                                     file-path))
-                         result))
-                  (not (funcall distignoredp file-path)))))
+             (when (string-equal "asd" (pathname-type file-path))
+               (let* ((relative-file-path (unix-filename-relative-to path
+                                                            file-path))
+                      (ignored-by-predicate (funcall ignore-filename-p
+                                                     relative-file-path))
+                      (ignored-by-distignore (funcall distignoredp
+                                                      file-path)))
+                 (cond
+                   (ignored-by-predicate
+                    (log:info "Ignoring asd file because of a predicate"
+                              path
+                              relative-file-path)
+                    nil)
+                   (ignored-by-distignore
+                    (log:info "Ignoring asd file because of a .distignore"
+                              path
+                              file-path)
+                    nil)
+                   ;; otherwise we'll use a file
+                   (t t))))))
       (fad:walk-directory path #'add-system-file :test #'asd-file-p))
     (sort system-files #'string< :key #'pathname-name)))
 
