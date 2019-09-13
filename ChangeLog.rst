@@ -2,6 +2,11 @@
  Quickdist's ChangeLog
 =======================
 
+0.15.0 (2019-09-15)
+===================
+
+* Now an error is generated if gnu tar binary is absent.
+
 0.14.0 (2019-07-07)
 ===================
 

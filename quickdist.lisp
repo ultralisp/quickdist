@@ -133,9 +133,21 @@ system-index-url: {{base-url}}/{{name}}/{{version}}/systems.txt
   (ironclad:byte-array-to-hex-string
    (ironclad:digest-file :md5 path)))
 
+
+(defun tar (opts &key (output *standard-output*)
+                      (error *error-output*))
+  (unless (probe-file *gnutar*)
+    (error "Binary ~A not found. Please, install gnutar. On OSX you can do brew install gnu-tar." *gnutar*))
+  
+  (external-program:run *gnutar* opts
+                        :output output
+                        :error error))
+
+
 (defun tar-content-sha1 (path)
   (let ((octets (babel-streams:with-output-to-sequence (buffer)
-                  (external-program:run *gnutar* (list "-xOf" path) :output buffer))))
+                  (tar (list "-xOf" path)
+                       :output buffer))))
     (ironclad:byte-array-to-hex-string
      (ironclad:digest-sequence :sha1 (copy-seq octets)))))
 
@@ -146,10 +158,9 @@ system-index-url: {{base-url}}/{{name}}/{{version}}/systems.txt
   (let* ((mtime (format-date (effective-mtime source-path)))
          (name (format nil "~a-~a" (last-directory source-path) mtime))
          (out-path (make-pathname :name name :type "tgz" :defaults (truename destdir-path))))
-    (external-program:run *gnutar* (list "-C" (native-namestring source-path) "."
-                                           "-czf" (native-namestring out-path)
-                                           "--transform" (format nil "s#^.#~a#" name))
-                          :output *standard-output* :error *error-output*)
+    (tar (list "-C" (native-namestring source-path) "."
+               "-czf" (native-namestring out-path)
+               "--transform" (format nil "s#^.#~a#" name)))
     out-path))
 
 
