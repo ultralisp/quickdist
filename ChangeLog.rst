@@ -6,6 +6,8 @@
 ===================
 
 * Now an error is generated if gnu tar binary is absent.
+* Fixed issue https://github.com/ultralisp/ultralisp/issues/51 when systems with asd files in nested directories
+  were not installable because of wrong system's file in metadata.
 
 0.14.0 (2019-07-07)
 ===================

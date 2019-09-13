@@ -447,6 +447,10 @@ dependency-def := simple-component-name
                    for system-file in system-files
                    for relative-system-file = (unix-filename-relative-to project-path
                                                                          system-file)
+                   ;; Here we need a filename without a directory and extension,
+                   ;; because in Quicklisp's metadata format it is in this format:
+                   ;; https://github.com/ultralisp/ultralisp/issues/51
+                   for system-filename = (pathname-name (pathname relative-system-file))
                    for systems = (get-systems system-file)
                    do (loop for name-and-dependencies in systems
                             for system-name = (first name-and-dependencies)
@@ -466,7 +470,7 @@ dependency-def := simple-component-name
                             do (push (make-instance 'system-info
                                                     :path system-file
                                                     :project-name project-name
-                                                    :filename relative-system-file
+                                                    :filename system-filename
                                                     :name system-name
                                                     :dependencies filtered-dependencies)
                                      systems-info))
