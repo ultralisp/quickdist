@@ -30,6 +30,8 @@ exec ros -Q -- $0 "$@"
                      :default "quickdist")
                (base-url "A URL from which you will serve your distribution."
                          :default "http://localhost:8080/")
+               (any-asd "Process any asd file, not only toplevel."
+                        :flag t)
                (output-dir "A directory where to put archives and metadata."
                            :default "dists")
                (dist-version "A version of distribution"
@@ -42,11 +44,17 @@ exec ros -Q -- $0 "$@"
     (format t "Please, specify one project dir.~%")
     (uiop:quit 1))
 
-  (quickdist:quickdist :name name
-                       :base-url base-url
-                       :projects-dir (first projects-dir)
-                       :dists-dir output-dir
-                       :version dist-version)
+  (let ((ignore-filename-p (cond
+                             (any-asd (constantly
+                                       (constantly nil)))
+                             (t (constantly
+                                 quickdist:*default-ignore-filename-p*)))))
+    (quickdist:quickdist :name name
+                         :base-url base-url
+                         :projects-dir (first projects-dir)
+                         :dists-dir output-dir
+                         :get-ignore-filename-p ignore-filename-p
+                         :version dist-version))
   
   (let ((url (format nil "~A/~A.txt"
                      (string-right-trim '(#\/)

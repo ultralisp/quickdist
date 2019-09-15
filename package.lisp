@@ -15,6 +15,8 @@
            #:*archive-url-template*
            #:*gnutar*
            #:*project-path*
+           #:*default-ignore-filename-p*
+           #:*default-ignore-dependency-p*
            #:skip-project
            #:make-archive
            #:make-systems-info

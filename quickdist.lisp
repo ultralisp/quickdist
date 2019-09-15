@@ -18,6 +18,14 @@ system-index-url: {{base-url}}/{{name}}/{{version}}/systems.txt
   #-os-macosx "/bin/tar"
   "Location of the GNU TAR program")
 
+
+(defparameter *default-ignore-filename-p*
+  'not-toplevel-filename-p)
+
+
+(defparameter *default-ignore-dependency-p*
+  'implementation-system-p)
+
 (defparameter *project-path* nil
   "During building of the distribution, this special variable will point to a currently processed project.")
 
@@ -197,7 +205,7 @@ system-index-url: {{base-url}}/{{name}}/{{version}}/systems.txt
                           thereis (ppcre:scan scanner subpath))))))))
       (constantly nil))))
 
-(defun find-system-files (path &key (ignore-filename-p 'not-toplevel-filename-p))
+(defun find-system-files (path &key (ignore-filename-p *default-ignore-filename-p*))
   "Returns a list of .asd files under the path.
 
    ignore-filename-p is a predicate which takes one string argument - a relative
@@ -424,8 +432,8 @@ dependency-def := simple-component-name
                    :system-files system-files)))
 
 
-(defun make-systems-info (project-path &key (ignore-filename-p 'not-toplevel-filename-p)
-                                         (ignore-dependency-p 'implementation-system-p))
+(defun make-systems-info (project-path &key (ignore-filename-p *default-ignore-filename-p*)
+                                         (ignore-dependency-p *default-ignore-dependency-p*))
   "Makes a list of system-info objects.
 
    Searches ASDF systems under the project-path.
@@ -490,8 +498,8 @@ dependency-def := simple-component-name
                     archive-path
                     archive-url
                     &key
-                      (get-ignore-filename-p (constantly 'not-toplevel-filename-p))
-                      (get-ignore-dependency-p (constantly 'implementation-system-p)))
+                      (get-ignore-filename-p (constantly *default-ignore-filename-p*))
+                      (get-ignore-dependency-p (constantly *default-ignore-dependency-p*)))
   "Builds a Quicklisp distribution in path `dist-path'.
 
    `get-ignore-filename-p' should be a function of one argument - `project-name' and
@@ -541,8 +549,8 @@ dependency-def := simple-component-name
                     base-url
                     projects-dir
                     dists-dir
-                    (get-ignore-filename-p (constantly 'not-toplevel-filename-p))
-                    (get-ignore-dependency-p (constantly 'implementation-system-p)))
+                    (get-ignore-filename-p (constantly *default-ignore-filename-p*))
+                    (get-ignore-dependency-p (constantly *default-ignore-dependency-p*)))
   "Builds a Quicklisp distribution in path `dist-path'.
 
    `get-ignore-filename-p' should be a function of one argument - `project-name' and
