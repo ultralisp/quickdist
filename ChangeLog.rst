@@ -2,6 +2,13 @@
  Quickdist's ChangeLog
 =======================
 
+0.16.0 (2019-09-15)
+===================
+
+* Fixed a bug with system filenames in releases.txt metadata.
+* Roswell script now accepts a new option ``--any-asd`` to
+  process not only toplevel asd files.
+
 0.15.0 (2019-09-15)
 ===================
 
