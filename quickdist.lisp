@@ -99,7 +99,11 @@ system-index-url: {{base-url}}/{{name}}/{{version}}/systems.txt
 (def-print-method ((obj system-info))
                   "~A ~A ~A~{ ~A~}"
   (get-project-name obj)
-  (get-filename obj)
+  ;; Whereas in releases.txt we output a full path to a system file
+  ;; like this: "slynk/slynk.asd"
+  ;; for systems.txt we need output only a file's name, like: "slynk".
+  ;; I don't know why but this is how Quicklisp client expect to be.
+  (pathname-name (pathname (get-filename obj)))
   (get-name obj)
   (get-dependencies obj))
 
@@ -450,7 +454,6 @@ dependency-def := simple-component-name
                    ;; Here we need a filename without a directory and extension,
                    ;; because in Quicklisp's metadata format it is in this format:
                    ;; https://github.com/ultralisp/ultralisp/issues/51
-                   for system-filename = (pathname-name (pathname relative-system-file))
                    for systems = (get-systems system-file)
                    do (loop for name-and-dependencies in systems
                             for system-name = (first name-and-dependencies)
@@ -470,7 +473,7 @@ dependency-def := simple-component-name
                             do (push (make-instance 'system-info
                                                     :path system-file
                                                     :project-name project-name
-                                                    :filename system-filename
+                                                    :filename relative-system-file
                                                     :name system-name
                                                     :dependencies filtered-dependencies)
                                      systems-info))
