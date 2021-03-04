@@ -2,6 +2,14 @@
  Quickdist's ChangeLog
 =======================
 
+0.16.1 (2021-03-04)
+===================
+
+* Fixed processing of the `require <https://common-lisp.net/project/asdf/asdf.html#Require>`_
+  dependencies like this ``(:require :extensible-sequences)``. Now they are ignored.
+
+  This should fix issue https://github.com/ultralisp/ultralisp/issues/101
+
 0.16.0 (2019-09-15)
 ===================
 

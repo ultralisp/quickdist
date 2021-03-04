@@ -265,14 +265,27 @@ dependency-def := simple-component-name
                  # (see Feature dependencies)
                | ( :version simple-component-name version-specifier )
                | ( :require module-name )
+
+If this function return nil, then such dependency should be ignored.
 "
-  (string-downcase (if (listp dep)
-                       (case (first dep)
-                         (:feature (third dep))
-                         (:version (second dep))
-                         (otherwise (error "Dependencies like ~A are not supported yet."
-                                           dep)))
-                       dep)))
+  (etypecase dep
+    (null nil)
+    (list
+     (normalize-dependency-name
+      (case (first dep)
+        (:feature (third dep))
+        (:version (second dep))
+        ;; Require is an implementation dependent
+        ;; mechanism and we'll return nil to ignore
+        ;; such dependencies.
+        ;;
+        ;; More info at:
+        ;; https://common-lisp.net/project/asdf/asdf.html#Require
+        (:require nil)
+        (otherwise (error "Dependencies like ~A are not supported yet."
+                          dep)))))
+    (string
+     (string-downcase dep))))
 
 
 (defparameter *external-dependencies* (make-hash-table :test 'equal))
@@ -307,8 +320,9 @@ dependency-def := simple-component-name
                         (usual-dependencies (asdf:system-depends-on system))
                         (all-direct-dependencies (nconc defsystem-dependencies
                                                         usual-dependencies))
-                        (normalized-deps (mapcar #'normalize-dependency-name
-                                                 all-direct-dependencies))
+                        (normalized-deps (remove-if #'null
+                                                    (mapcar #'normalize-dependency-name
+                                                            all-direct-dependencies)))
                         (deps (delete-duplicates normalized-deps
                                                  :test 'string-equal))
                         (subsystems (loop for dep in deps
