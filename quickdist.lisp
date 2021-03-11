@@ -282,8 +282,10 @@ If this function return nil, then such dependency should be ignored.
         ;; More info at:
         ;; https://common-lisp.net/project/asdf/asdf.html#Require
         (:require nil)
-        (otherwise (error "Dependencies like ~A are not supported yet."
-                          dep)))))
+        (otherwise
+         (warn "Dependencies like ~A are not supported by Quickdist yet."
+               dep)
+         nil))))
     (string
      (string-downcase dep))))
 

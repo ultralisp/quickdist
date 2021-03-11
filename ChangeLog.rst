@@ -2,6 +2,12 @@
  Quickdist's ChangeLog
 =======================
 
+0.16.2 (2021-03-11)
+===================
+
+* Don't fail on dependencies like ``(:interface :admin)`` used by
+  `Radiance <https://github.com/Shirakumo/radiance/blob/5ffbe1f157edd17a13194495099efd81e052df85/test/radiance-test.asd#L22-L37>`_ framework.
+
 0.16.1 (2021-03-04)
 ===================
 
