@@ -237,7 +237,12 @@ system-index-url: {{base-url}}/{{name}}/{{version}}/systems.txt
                    ;; otherwise we'll use a file
                    (t t))))))
       (fad:walk-directory path #'add-system-file :test #'asd-file-p))
-    (sort system-files #'string< :key #'pathname-name)))
+    (loop for path in (sort system-files #'string< :key #'pathname-name)
+          ;; Without this transformation, on Lispworks we'll get a :unspecific
+          ;; components in a pathname and it will be imposible to deserialize
+          ;; it in other lisp implementation using cl-store. 
+          collect (uiop:make-pathname-logical path
+                                              nil))))
 
 
 (defun asdf-dependency-name (form)
