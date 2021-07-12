@@ -2,6 +2,12 @@
  Quickdist's ChangeLog
 =======================
 
+0.16.3 (2021-07-12)
+===================
+
+* Fixed infinite recursion in case if ASDF system depends on itself, like
+  `lispbuilder-opengl-1-2 did <https://github.com/lispbuilder/lispbuilder/blob/b7df0f2f9bd46da5ff322427d4bc6e6eefbfa722/lispbuilder-opengl/lispbuilder-opengl-1-2.asd>`_.
+
 0.16.2 (2021-03-11)
 ===================
 

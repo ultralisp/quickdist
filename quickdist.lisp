@@ -297,6 +297,10 @@ If this function return nil, then such dependency should be ignored.
 
 (defparameter *external-dependencies* (make-hash-table :test 'equal))
 
+(defvar *already-seen* nil)
+(setf (documentation '*already-seen* 'variable)
+      "Here we'll keep a list of system names seen during dependency collection, to detect loops.")
+
 
 (defun get-external-dependencies (system-name)
   "Returns direct external dependencies for the system.
@@ -309,46 +313,67 @@ If this function return nil, then such dependency should be ignored.
    inferred system, a name of a primary system is returned.
 
    Resulting value is a list of lists where first item is a system-name or it's
-   subsystem's name and the reset is their direct depdencies names sorted alphabetically."
+   subsystem's name and the reset is their direct depdencies names sorted alphabetically.
+
+   Sometimes there can be bugs and a system may depend on itself like this:
+
+   https://github.com/lispbuilder/lispbuilder/blob/b7df0f2f9bd46da5ff322427d4bc6e6eefbfa722/lispbuilder-opengl/lispbuilder-opengl-1-2.asd
+
+   In such case, SYSTEM-NAME will be removed from the resulting dependencies.)
+"
   (check-type system-name string)
 
-  (cond ((not (eql (gethash system-name *external-dependencies* :absent)
+  (cond ((member system-name *already-seen*
+                 :test #'string-equal)
+         nil)
+        
+        ((not (eql (gethash system-name *external-dependencies* :absent)
                    :absent))
          (log:debug "Returning external dependencies from cache" system-name)
          (gethash system-name *external-dependencies*))
+        
         (t
-         (log:debug "Retrieving external dependencies for" system-name)
+         (let ((*already-seen* (list* system-name
+                                      *already-seen*)))
+           (log:debug "Retrieving external dependencies for" system-name)
 
-         (setf (gethash system-name *external-dependencies*)
-               (let ((already-collected (make-hash-table :test 'equal)))
-                 (let* ((system (asdf:find-system system-name))
-                        (primary-name (asdf:primary-system-name system))
-                        (defsystem-dependencies (asdf:system-defsystem-depends-on system))
-                        (usual-dependencies (asdf:system-depends-on system))
-                        (all-direct-dependencies (nconc defsystem-dependencies
-                                                        usual-dependencies))
-                        (normalized-deps (remove-if #'null
-                                                    (mapcar #'normalize-dependency-name
-                                                            all-direct-dependencies)))
-                        (deps (delete-duplicates normalized-deps
-                                                 :test 'string-equal))
-                        (subsystems (loop for dep in deps
-                                          for dep-primary-name = (asdf:primary-system-name dep)
-                                          ;; We only expand inner component of the current
-                                          ;; system, because for quicklisp distribution we
-                                          ;; need to specify only direct dependencies
-                                          when (and (not (gethash dep already-collected))
-                                                    (string-equal primary-name
-                                                                  dep-primary-name))
+           (setf (gethash system-name *external-dependencies*)
+                 (let ((already-collected (make-hash-table :test 'equal)))
+                   (let* ((system (asdf:find-system system-name))
+                          (primary-name (asdf:primary-system-name system))
+                          (defsystem-dependencies (asdf:system-defsystem-depends-on system))
+                          (usual-dependencies (asdf:system-depends-on system))
+                          (all-direct-dependencies (nconc defsystem-dependencies
+                                                          usual-dependencies))
+                          (normalized-deps (remove-if #'null
+                                                      (mapcar #'normalize-dependency-name
+                                                              all-direct-dependencies)))
+                          (deps (delete-duplicates normalized-deps
+                                                   :test 'string-equal))
+                          ;; This is a kludge to exclude system itself in case
+                          ;; if it ASDF system definition is broken and a system
+                          ;; depends on itself. Sometimes shit happens :(
+                          (deps (loop for dep in deps
+                                      unless (string-equal dep
+                                                           system-name)
+                                      collect dep))
+                          (subsystems (loop for dep in deps
+                                            for dep-primary-name = (asdf:primary-system-name dep)
+                                            ;; We only expand inner component of the current
+                                            ;; system, because for quicklisp distribution we
+                                            ;; need to specify only direct dependencies
+                                            when (and (not (gethash dep already-collected))
+                                                      (string-equal primary-name
+                                                                    dep-primary-name))
                                             do (setf (gethash dep already-collected)
                                                      t)
                                             and appending (get-external-dependencies dep))))
-                   (sort (remove-duplicates
-                          (list* (list* system-name deps)
-                                 subsystems)
-                          :test #'equal)
-                         #'string<
-                         :key #'first)))))))
+                     (sort (remove-duplicates
+                            (list* (list* system-name deps)
+                                   subsystems)
+                            :test #'equal)
+                           #'string<
+                           :key #'first))))))))
 
 
 (defun copy-hash-table-partially (table &key keys)
