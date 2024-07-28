@@ -2,6 +2,11 @@
  Quickdist's ChangeLog
 =======================
 
+0.17.0 (2024-07-28)
+===================
+
+* Added `canonical-distinfo-url` to the distinfo file to solve this issue: https://github.com/ultralisp/ultralisp/issues/81
+
 0.16.4 (2021-07-12)
 ===================
 

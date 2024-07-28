@@ -7,6 +7,7 @@ distinfo-subscription-url: {{base-url}}/{{name}}.txt
 distinfo-template-url: {{base-url}}/{{name}}/{{=<< >>=}}{{version}}<<={{ }}=>>/distinfo.txt
 release-index-url: {{base-url}}/{{name}}/{{version}}/releases.txt
 system-index-url: {{base-url}}/{{name}}/{{version}}/systems.txt
+canonical-distinfo-url: {{base-url}}/{{name}}/{{version}}/distinfo.txt
 ")
 (defparameter *distinfo-file-template* "{{dists-dir}}/{{name}}.txt")
 (defparameter *dist-dir-template*      "{{dists-dir}}/{{name}}/{{version}}")
