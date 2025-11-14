@@ -237,7 +237,11 @@ canonical-distinfo-url: {{base-url}}/{{name}}/{{version}}/distinfo.txt
                     nil)
                    ;; otherwise we'll use a file
                    (t t))))))
-      (fad:walk-directory path #'add-system-file :test #'asd-file-p))
+      (fad:walk-directory path #'add-system-file :test #'asd-file-p
+                          ;; Some projects may have circular links.
+                          ;; Example of such project is https://github.com/fukamachi/trivial-glob
+                          ;; which has symlink test-fixtures/circular-link -> test-fixtures.
+                          :follow-symlinks nil))
     (loop for path in (sort system-files #'string< :key #'pathname-name)
           ;; Without this transformation, on Lispworks we'll get a :unspecific
           ;; components in a pathname and it will be imposible to deserialize
