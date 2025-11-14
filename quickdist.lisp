@@ -135,7 +135,8 @@ canonical-distinfo-url: {{base-url}}/{{name}}/{{version}}/distinfo.txt
 (defun effective-mtime (path)
   (if (not (fad:directory-pathname-p path))
       (file-write-date path)
-      (apply #'max 0 (mapcar #'effective-mtime (fad:list-directory path)))))
+      (apply #'max 0 (mapcar #'effective-mtime (fad:list-directory path
+                                                                   :follow-symlinks nil)))))
 
 (defun format-date (universal-time)
   (let* ((time (multiple-value-list (decode-universal-time universal-time)))
